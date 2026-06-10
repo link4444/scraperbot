@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+pricemonitor.db
+pricemonitor.db-shm
+pricemonitor.db-wal
+.pytest_cache/

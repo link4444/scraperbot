@@ -11,7 +11,7 @@ erDiagram
     PRODUCT ||--o{ PRICE_HISTORY : "has history"
     PRODUCT {
         integer id PK
-        string url UNIQUE
+        string url UK
         string title
         string image_url
         float current_price
