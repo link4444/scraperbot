@@ -379,32 +379,36 @@ async def seed_price_history(
 # GET /api/products/{product_id}/prediction — Price drop probability
 # ---------------------------------------------------------------------------
 import math
+import random
 
-def _calculate_probability(current: float, target: float, days: int, daily_volatility: float) -> float:
-    """Calculate probability of price hitting target using a simple random walk model."""
+def _monte_carlo_probability(current: float, target: float, days: int, drift: float, volatility: float, num_simulations: int = 5000) -> float:
+    """
+    Run Monte Carlo simulation using Geometric Brownian Motion to find the 
+    probability of the price dropping to the target within N days.
+    """
     if current <= target:
-        return 1.0  # Already there!
-    if daily_volatility == 0:
-        return 0.0  # Will never reach if there's no volatility
+        return 1.0
+    if volatility == 0:
+        return 0.0
     
-    # We want to find the probability that the price drops by at least (current - target)
-    # The variance over N days is N * daily_variance
-    time_volatility = daily_volatility * math.sqrt(days)
-    distance = current - target
+    hits = 0
+    # Pre-calculate the deterministic part of the GBM exponent
+    drift_term = drift - (volatility ** 2) / 2.0
     
-    # Simple normal CDF approximation for P(Drop > distance)
-    # Z-score of the drop
-    z = distance / time_volatility
-    
-    # Approximation of complementary error function for normal distribution
-    # This gives the probability of the price dropping below target
-    prob = 0.5 * (1.0 - math.erf(z / math.sqrt(2.0)))
-    
-    # In reality, prices don't follow pure brownian motion. Ecommerce prices drop in sales.
-    # To make it fun for the dashboard, we add a slight drift towards the target over time
-    # and cap the probabilities nicely.
-    adjusted_prob = prob * 2.0  # Multiplier to account for "sale" events being asymmetric
-    return min(max(adjusted_prob, 0.01), 0.99)
+    for _ in range(num_simulations):
+        sim_price = current
+        for _ in range(days):
+            # Z ~ Normal(0, 1)
+            z = random.gauss(0, 1)
+            daily_return = math.exp(drift_term + volatility * z)
+            sim_price *= daily_return
+            
+            if sim_price <= target:
+                hits += 1
+                break  # Target hit, stop simulating this path
+                
+    # Ensure a small baseline probability so the graph doesn't look completely dead
+    return min(max(hits / num_simulations, 0.01), 0.99)
 
 
 @app.get(
@@ -415,7 +419,7 @@ async def get_price_prediction(
     product_id: int,
     session: Session = Depends(get_session),
 ):
-    """Calculate the probability of the price hitting the target in 1w, 1m, 1y."""
+    """Calculate the probability of the price hitting the target using Monte Carlo simulations."""
     product = session.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -426,33 +430,47 @@ async def get_price_prediction(
         .order_by(PriceHistory.scraped_at)
     ).all()
 
-    # Calculate basic daily volatility from history
-    daily_volatility = 0.0
-    message = "Based on limited data, using baseline market volatility."
+    drift = 0.0
+    volatility = 0.0
+    message = "Ran 5,000 Monte Carlo simulations using baseline market volatility."
     
     if len(history) >= 2:
-        # Calculate standard deviation of prices
-        prices = [h.price for h in history]
-        mean_price = sum(prices) / len(prices)
-        variance = sum((p - mean_price)**2 for p in prices) / len(prices)
-        stdev = math.sqrt(variance)
+        log_returns = []
+        for i in range(1, len(history)):
+            prev_price = history[i-1].price
+            curr_price = history[i].price
+            if prev_price > 0 and curr_price > 0:
+                log_returns.append(math.log(curr_price / prev_price))
         
-        # If there's some actual price movement, use it. Otherwise use a baseline.
-        if stdev > 0:
-            # We assume the historical period represents recent volatility
-            # Convert to a daily scale (roughly). If they scraped 5 times today, we don't want
-            # to assume that variance happens every minute. We'll use a heuristic.
-            daily_volatility = stdev
-            message = f"Based on {len(history)} historical data points."
-    
-    # Baseline fallback volatility (e.g. 1.5% daily fluctuation if no data)
-    if daily_volatility == 0:
-        daily_volatility = product.current_price * 0.015
+        if log_returns:
+            mean_return = sum(log_returns) / len(log_returns)
+            variance = sum((r - mean_return)**2 for r in log_returns) / len(log_returns)
+            volatility = math.sqrt(variance)
+            drift = mean_return
+            
+            # Scale to daily if we know the time span.
+            # We enforce UTC explicitly because SQLite datetime may be naive depending on driver
+            dt_start = history[0].scraped_at.replace(tzinfo=timezone.utc) if history[0].scraped_at.tzinfo is None else history[0].scraped_at
+            dt_end = history[-1].scraped_at.replace(tzinfo=timezone.utc) if history[-1].scraped_at.tzinfo is None else history[-1].scraped_at
+            time_span_days = (dt_end - dt_start).total_seconds() / 86400.0
+            
+            if time_span_days > 0.5:
+                # Approximate points per day
+                points_per_day = len(log_returns) / time_span_days
+                drift *= points_per_day
+                volatility *= math.sqrt(points_per_day)
+            
+            message = f"Ran 5,000 Monte Carlo simulations based on {len(history)} real data points."
+            
+    # Baseline fallback volatility (e.g. 2% daily fluctuation, slight downward drift if no data)
+    if volatility == 0:
+        volatility = 0.02
+        drift = -0.001
 
     return PricePredictionResponse(
-        prob_1_week=_calculate_probability(product.current_price, product.target_price, 7, daily_volatility),
-        prob_1_month=_calculate_probability(product.current_price, product.target_price, 30, daily_volatility),
-        prob_1_year=_calculate_probability(product.current_price, product.target_price, 365, daily_volatility),
+        prob_1_week=_monte_carlo_probability(product.current_price, product.target_price, 7, drift, volatility),
+        prob_1_month=_monte_carlo_probability(product.current_price, product.target_price, 30, drift, volatility),
+        prob_1_year=_monte_carlo_probability(product.current_price, product.target_price, 365, drift, volatility),
         message=message,
     )
 
