@@ -241,8 +241,12 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
 async def fetch_coingecko_data(coin_id: str) -> Optional[dict]:
     """Fetch current price and metadata from CoinGecko API."""
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, headers=headers) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             data = resp.json()
@@ -261,8 +265,12 @@ async def fetch_coingecko_data(coin_id: str) -> Optional[dict]:
 async def fetch_coingecko_history(coin_id: str, days: int = 30) -> list[tuple[float, float]]:
     """Fetch real historical price data from CoinGecko. Returns list of (timestamp_ms, price)."""
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={days}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, headers=headers) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             data = resp.json()
