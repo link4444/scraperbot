@@ -26,6 +26,8 @@ class ProductBase(SQLModel):
     target_price: float
     alert_triggered: bool = False
     status: str = "Active"
+    currency_symbol: str = Field(default="£")
+    currency_code: str = Field(default="GBP")
 
 
 class Product(ProductBase, table=True):

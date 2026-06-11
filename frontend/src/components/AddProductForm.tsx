@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import axios from 'axios';
-import { Plus, Link, DollarSign, Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Plus, Link, DollarSign, Loader2, AlertCircle, CheckCircle2, X, Globe } from 'lucide-react';
 
 interface AddProductFormProps {
   onProductAdded: () => void;
@@ -18,6 +18,7 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
   const [url, setUrl] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState('Tracking product\u2026');
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = (type: 'error' | 'success', message: string) => {
@@ -46,29 +47,41 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
     }
 
     setLoading(true);
+    setLoadingMsg('Scraping product page\u2026');
+
+    // After 8 s, update message so user knows it may take a moment
+    const slowTimer = setTimeout(() => {
+      setLoadingMsg('Still loading\u2014browser is scraping the page (up to 30 s)\u2026');
+    }, 8000);
 
     try {
-      await axios.post('/api/products', {
-        url: url.trim(),
-        target_price: Number(targetPrice),
-      });
+      await axios.post(
+        '/api/products',
+        { url: url.trim(), target_price: Number(targetPrice) },
+        { timeout: 60000 }, // 60-second client-side timeout
+      );
 
+      clearTimeout(slowTimer);
       setUrl('');
       setTargetPrice('');
       addToast('success', 'Product is now being tracked!');
       onProductAdded();
     } catch (err: unknown) {
+      clearTimeout(slowTimer);
       if (axios.isAxiosError(err)) {
         const message =
-          err.response?.data?.detail ||
-          err.response?.data?.message ||
-          'Failed to add product. Please try again.';
+          err.code === 'ECONNABORTED'
+            ? 'Request timed out — the server is taking too long. Please try again.'
+            : err.response?.data?.detail ||
+              err.response?.data?.message ||
+              'Failed to add product. Please try again.';
         addToast('error', message);
       } else {
         addToast('error', 'An unexpected error occurred.');
       }
     } finally {
       setLoading(false);
+      setLoadingMsg('Tracking product\u2026');
     }
   };
 
@@ -118,7 +131,7 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
           <div>
             <h2 className="text-xl font-semibold text-white">Track a Product</h2>
             <p className="text-sm text-gray-400 mt-0.5">
-              Paste a URL and set your target price
+              Paste a URL and set your target price — currency is auto-detected
             </p>
           </div>
         </div>
@@ -166,6 +179,7 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
               className="block text-sm font-medium text-gray-300 mb-2"
             >
               Target Price
+              <span className="ml-2 text-xs text-gray-500 font-normal">(currency auto-detected from page)</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
@@ -193,6 +207,13 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
                   disabled:opacity-50 disabled:cursor-not-allowed
                 "
               />
+            </div>
+            {/* Currency auto-detect notice */}
+            <div className="flex items-center gap-1.5 mt-2">
+              <Globe className="w-3 h-3 text-gray-600" />
+              <span className="text-[11px] text-gray-600">
+                Currency symbol (£, $, €, ¥, ₹, etc.) is automatically detected from the product page
+              </span>
             </div>
           </div>
 
@@ -223,7 +244,12 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Tracking product…</span>
+                <div className="flex flex-col items-start">
+                  <span>{loadingMsg}</span>
+                  {loadingMsg.includes('Still') && (
+                    <span className="text-xs opacity-70">Playwright is rendering the page in a headless browser…</span>
+                  )}
+                </div>
               </>
             ) : (
               <>

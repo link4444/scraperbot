@@ -121,6 +121,8 @@ async def add_product(
         image_url=scraped["image_url"],
         current_price=scraped["price"],
         target_price=product_in.target_price,
+        currency_symbol=scraped.get("currency_symbol", ""),
+        currency_code=scraped.get("currency_code", "UNKNOWN"),
     )
 
     # 3. Persist — handle duplicate URLs

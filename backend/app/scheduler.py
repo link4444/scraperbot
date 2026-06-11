@@ -66,8 +66,14 @@ async def check_prices_task() -> None:
                     product.target_price,
                 )
 
-                # Update current price
+                # Update current price and currency info
                 product.current_price = new_price
+                product.currency_symbol = scraped.get(
+                    "currency_symbol", product.currency_symbol
+                )
+                product.currency_code = scraped.get(
+                    "currency_code", product.currency_code
+                )
 
                 # Insert price-history record
                 history = PriceHistory(price=new_price, product_id=product.id)
