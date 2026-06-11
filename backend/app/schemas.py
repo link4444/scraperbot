@@ -61,6 +61,18 @@ class PriceHistoryResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+# ---------------------------------------------------------------------------
+# Prediction schemas
+# ---------------------------------------------------------------------------
+
+class PricePredictionResponse(BaseModel):
+    """Probability of reaching target price over different timeframes."""
+    
+    prob_1_week: float
+    prob_1_month: float
+    prob_1_year: float
+    message: str
+
 
 # ---------------------------------------------------------------------------
 # Demo mode schemas

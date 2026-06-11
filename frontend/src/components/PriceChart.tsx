@@ -47,6 +47,13 @@ function formatTimestamp(iso: string): string {
     });
 }
 
+interface PricePrediction {
+  prob_1_week: number;
+  prob_1_month: number;
+  prob_1_year: number;
+  message: string;
+}
+
 export default function PriceChart({
   productId,
   productTitle,
@@ -54,19 +61,23 @@ export default function PriceChart({
   currencySymbol = '$',
 }: PriceChartProps) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
+  const [prediction, setPrediction] = useState<PricePrediction | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchHistory() {
+    async function fetchData() {
       setLoading(true);
       try {
-        const res = await axios.get<PricePoint[]>(
-          `/api/products/${productId}/history`
-        );
+        const [historyRes, predictionRes] = await Promise.all([
+          axios.get<PricePoint[]>(`/api/products/${productId}/history`),
+          axios.get<PricePrediction>(`/api/products/${productId}/prediction`)
+        ]);
+        
         if (cancelled) return;
-        const chartData: ChartDataPoint[] = res.data.map((p) => ({
+        
+        const chartData: ChartDataPoint[] = historyRes.data.map((p) => ({
           time: formatTimestamp(p.scraped_at),
           rawTime: new Date(p.scraped_at).getTime(),
           price: p.price,
@@ -74,15 +85,19 @@ export default function PriceChart({
         // Sort by time ascending
         chartData.sort((a, b) => a.rawTime - b.rawTime);
         setData(chartData);
+        setPrediction(predictionRes.data);
       } catch (err) {
-        console.error('Failed to fetch price history:', err);
-        if (!cancelled) setData([]);
+        console.error('Failed to fetch chart data:', err);
+        if (!cancelled) {
+          setData([]);
+          setPrediction(null);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    fetchHistory();
+    fetchData();
     return () => {
       cancelled = true;
     };
@@ -242,6 +257,66 @@ export default function PriceChart({
                 />
               </ComposedChart>
             </ResponsiveContainer>
+          </div>
+        {/* Prediction area below the chart */}
+        {!loading && data.length > 0 && prediction && (
+          <div className="mt-8 pt-6 border-t border-white/[0.06]">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-fuchsia-500 to-pink-500 shadow-lg shadow-fuchsia-500/20">
+                <BarChart3 className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Target Probability Forecast</h4>
+                <p className="text-xs text-gray-500">{prediction.message}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {/* 1 Week */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-fuchsia-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <span className="text-xs font-medium text-gray-400 mb-1 z-10">1 Week</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent z-10">
+                  {Math.round(prediction.prob_1_week * 100)}%
+                </span>
+                <div className="w-full h-1 bg-white/[0.05] rounded-full mt-3 overflow-hidden z-10">
+                  <div 
+                    className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full"
+                    style={{ width: `${prediction.prob_1_week * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 1 Month */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <span className="text-xs font-medium text-gray-400 mb-1 z-10">1 Month</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent z-10">
+                  {Math.round(prediction.prob_1_month * 100)}%
+                </span>
+                <div className="w-full h-1 bg-white/[0.05] rounded-full mt-3 overflow-hidden z-10">
+                  <div 
+                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
+                    style={{ width: `${prediction.prob_1_month * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 1 Year */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <span className="text-xs font-medium text-gray-400 mb-1 z-10">1 Year</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent z-10">
+                  {Math.round(prediction.prob_1_year * 100)}%
+                </span>
+                <div className="w-full h-1 bg-white/[0.05] rounded-full mt-3 overflow-hidden z-10">
+                  <div 
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
+                    style={{ width: `${prediction.prob_1_year * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
