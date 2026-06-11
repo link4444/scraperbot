@@ -48,11 +48,13 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
     setLoading(true);
 
     try {
-      await axios.post(
+      console.log('Sending POST request to:', axios.defaults.baseURL + '/api/products');
+      const response = await axios.post(
         '/api/products',
         { url: url.trim(), target_price: Number(targetPrice) },
         { timeout: 60000 }, // 60-second client-side timeout
       );
+      console.log('Response received:', response.data);
 
       setUrl('');
       setTargetPrice('');

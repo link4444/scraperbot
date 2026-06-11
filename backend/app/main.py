@@ -10,7 +10,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -153,13 +153,15 @@ async def root():
     return {"status": "ok"}
 
 
+# Set to keep strong references to background tasks
+_running_tasks = set()
+
 # ---------------------------------------------------------------------------
 # POST /api/products — Track a new product (non-blocking background scrape)
 # ---------------------------------------------------------------------------
 @app.post("/api/products", response_model=ProductResponse, status_code=201)
 async def add_product(
     product_in: ProductCreate,
-    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     """Accept a product URL, persist it as Pending, and kick off a background scrape."""
@@ -185,8 +187,10 @@ async def add_product(
             detail="A product with this URL is already being tracked",
         )
 
-    # 3. Kick off background scrape (runs after response is sent)
-    background_tasks.add_task(_background_scrape, product.id, product_in.url)
+    # 3. Kick off background scrape safely (prevents HTTP/2 stream blocking)
+    task = asyncio.create_task(_background_scrape(product.id, product_in.url))
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
 
     # 4. Return immediately with Pending status
     return product
