@@ -146,7 +146,7 @@ async def _background_scrape(product_id: int, url: str) -> None:
             coingecko_match = re.search(r"coingecko\.com/en/coins/([a-zA-Z0-9-]+)", url)
             existing_history = session.exec(select(PriceHistory).where(PriceHistory.product_id == product_id)).all()
             
-            if coingecko_match and len(existing_history) == 0:
+            if coingecko_match and len(existing_history) <= 1:
                 coin_id = coingecko_match.group(1)
                 logger.info(f"Fetching real 30-day history for {coin_id} from CoinGecko API...")
                 # We can't await inside the sync session context if we aren't careful, but 
