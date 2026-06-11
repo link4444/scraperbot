@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Environment
 # ---------------------------------------------------------------------------
 DISCORD_WEBHOOK_URL: str | None = os.getenv("DISCORD_WEBHOOK_URL")
+FRONTEND_URL: str | None = os.getenv("FRONTEND_URL")
 
 
 # ---------------------------------------------------------------------------
@@ -77,11 +78,13 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # CORS — allow the React dev server
 # ---------------------------------------------------------------------------
+_cors_origins = ["http://localhost:5173"]
+if FRONTEND_URL:
+    _cors_origins.append(FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
