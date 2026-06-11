@@ -40,6 +40,8 @@ class ProductResponse(BaseModel):
     target_price: float
     alert_triggered: bool
     status: str
+    currency_symbol: str
+    currency_code: str
     created_at: datetime
 
     model_config = {"from_attributes": True}

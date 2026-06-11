@@ -21,6 +21,8 @@ export interface Product {
   target_price: number;
   alert_triggered: boolean;
   status: string;
+  currency_symbol: string;
+  currency_code: string;
   created_at: string;
 }
 
@@ -216,9 +218,14 @@ export default function ProductCard({
       <div className="flex items-end justify-between gap-4">
         {/* Current price */}
         <div>
-          <p className="text-xs text-gray-500 mb-1">Current Price</p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-xs text-gray-500">Current Price</p>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider bg-violet-500/15 text-violet-400 border border-violet-500/25">
+              {product.currency_code}
+            </span>
+          </div>
           <p className="text-2xl font-bold text-white tracking-tight">
-            ${product.current_price.toFixed(2)}
+            {product.currency_symbol}{product.current_price.toFixed(2)}
           </p>
         </div>
 
@@ -260,7 +267,7 @@ export default function ProductCard({
               className="flex items-center gap-1.5"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="text-xs text-gray-400">$</span>
+              <span className="text-xs text-gray-400">{product.currency_symbol || '$'}</span>
               <input
                 type="number"
                 value={targetValue}
@@ -291,7 +298,7 @@ export default function ProductCard({
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-emerald-400">
-                ${product.target_price.toFixed(2)}
+                {product.currency_symbol}{product.target_price.toFixed(2)}
               </span>
               <button
                 onClick={(e) => {
