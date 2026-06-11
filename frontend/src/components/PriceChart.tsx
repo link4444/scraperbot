@@ -11,13 +11,14 @@ import {
   Area,
   ComposedChart,
 } from 'recharts';
-import { BarChart3, Loader2, Inbox } from 'lucide-react';
+import { BarChart3, Loader2, Inbox, Wand2 } from 'lucide-react';
 
 interface PriceChartProps {
   productId: number;
   productTitle: string;
   targetPrice: number;
   currencySymbol?: string;
+  onDataSeeded?: () => void;
 }
 
 interface PricePoint {
@@ -59,49 +60,63 @@ export default function PriceChart({
   productTitle,
   targetPrice,
   currencySymbol = '$',
+  onDataSeeded,
 }: PriceChartProps) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
   const [prediction, setPrediction] = useState<PricePrediction | null>(null);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+
+  const fetchData = async (cancelled = false) => {
+    setLoading(true);
+    try {
+      const [historyRes, predictionRes] = await Promise.all([
+        axios.get<PricePoint[]>(`/api/products/${productId}/history`),
+        axios.get<PricePrediction>(`/api/products/${productId}/prediction`)
+      ]);
+      
+      if (cancelled) return;
+      
+      const chartData: ChartDataPoint[] = historyRes.data.map((p) => ({
+        time: formatTimestamp(p.scraped_at),
+        rawTime: new Date(p.scraped_at).getTime(),
+        price: p.price,
+      }));
+      // Sort by time ascending
+      chartData.sort((a, b) => a.rawTime - b.rawTime);
+      setData(chartData);
+      setPrediction(predictionRes.data);
+    } catch (err) {
+      console.error('Failed to fetch chart data:', err);
+      if (!cancelled) {
+        setData([]);
+        setPrediction(null);
+      }
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const [historyRes, predictionRes] = await Promise.all([
-          axios.get<PricePoint[]>(`/api/products/${productId}/history`),
-          axios.get<PricePrediction>(`/api/products/${productId}/prediction`)
-        ]);
-        
-        if (cancelled) return;
-        
-        const chartData: ChartDataPoint[] = historyRes.data.map((p) => ({
-          time: formatTimestamp(p.scraped_at),
-          rawTime: new Date(p.scraped_at).getTime(),
-          price: p.price,
-        }));
-        // Sort by time ascending
-        chartData.sort((a, b) => a.rawTime - b.rawTime);
-        setData(chartData);
-        setPrediction(predictionRes.data);
-      } catch (err) {
-        console.error('Failed to fetch chart data:', err);
-        if (!cancelled) {
-          setData([]);
-          setPrediction(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    fetchData();
+    fetchData(cancelled);
     return () => {
       cancelled = true;
     };
   }, [productId]);
+
+  const handleSeedData = async () => {
+    setSeeding(true);
+    try {
+      await axios.post(`/api/products/${productId}/seed-history`);
+      await fetchData();
+      if (onDataSeeded) onDataSeeded();
+    } catch (err) {
+      console.error('Failed to seed data', err);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   // Compute Y-axis domain with some padding
   const prices = data.map((d) => d.price);
@@ -141,18 +156,33 @@ export default function PriceChart({
 
       <div className="relative bg-white/[0.04] backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-6 shadow-2xl">
         {/* Chart header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-lg shadow-violet-500/20">
-            <BarChart3 className="w-4 h-4 text-white" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-lg shadow-violet-500/20">
+              <BarChart3 className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">
+                Price History
+              </h3>
+              <p className="text-xs text-gray-500 truncate max-w-md">
+                {productTitle}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-semibold text-white">
-              Price History
-            </h3>
-            <p className="text-xs text-gray-500 truncate max-w-md">
-              {productTitle}
-            </p>
-          </div>
+          
+          <button
+            onClick={handleSeedData}
+            disabled={seeding}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg transition-colors"
+          >
+            {seeding ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Wand2 className="w-3.5 h-3.5" />
+            )}
+            Seed Demo Data
+          </button>
         </div>
 
         {/* Chart body */}

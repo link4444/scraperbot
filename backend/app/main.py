@@ -288,6 +288,63 @@ async def get_price_history(
 
 
 # ---------------------------------------------------------------------------
+# POST /api/products/{product_id}/seed-history — Generate fake history (Demo)
+# ---------------------------------------------------------------------------
+import random
+from datetime import timedelta, timezone, datetime
+
+@app.post("/api/products/{product_id}/seed-history", response_model=dict)
+async def seed_price_history(
+    product_id: int,
+    session: Session = Depends(get_session),
+):
+    """(DEMO FEATURE) Generates 30 days of randomized fake historical data for the graph."""
+    product = session.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    # Delete existing history
+    existing = session.exec(select(PriceHistory).where(PriceHistory.product_id == product_id)).all()
+    for e in existing:
+        session.delete(e)
+
+    base_price = product.current_price
+    if base_price == 0:
+        base_price = 50.0
+
+    # Generate 30 data points going back in time
+    now = datetime.now(timezone.utc)
+    current_sim_price = base_price * 1.2  # Start 20% higher 30 days ago
+    
+    for i in range(30, 0, -1):
+        # Random walk with occasional drops
+        if random.random() > 0.85:
+            # 15% chance of a "sale" drop
+            current_sim_price *= random.uniform(0.85, 0.95)
+        else:
+            # Normal small fluctuation or creep up
+            current_sim_price *= random.uniform(0.98, 1.03)
+            
+        history_entry = PriceHistory(
+            price=round(current_sim_price, 2),
+            product_id=product.id,
+        )
+        # Override the auto-generated timestamp
+        history_entry.scraped_at = now - timedelta(days=i)
+        session.add(history_entry)
+
+    # Add the actual current price as the latest point
+    final_entry = PriceHistory(
+        price=product.current_price,
+        product_id=product.id,
+    )
+    final_entry.scraped_at = now
+    session.add(final_entry)
+
+    session.commit()
+    return {"status": "success", "message": "Generated 30 days of fake history for the graph!"}
+
+# ---------------------------------------------------------------------------
 # GET /api/products/{product_id}/prediction — Price drop probability
 # ---------------------------------------------------------------------------
 import math
