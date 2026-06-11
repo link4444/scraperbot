@@ -237,22 +237,53 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Public API — tries httpx first, falls back to Playwright
 # ---------------------------------------------------------------------------
+
+async def fetch_coingecko_data(coin_id: str) -> Optional[dict]:
+    """Fetch current price and metadata from CoinGecko API."""
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            return {
+                "title": f"{data['name']} (Crypto)",
+                "price": float(data['market_data']['current_price']['usd']),
+                "image_url": data['image']['large'],
+                "currency_symbol": "$",
+                "currency_code": "USD",
+            }
+    except Exception:
+        logger.exception("CoinGecko API failed for coin: %s", coin_id)
+        return None
+
+async def fetch_coingecko_history(coin_id: str, days: int = 30) -> list[tuple[float, float]]:
+    """Fetch real historical price data from CoinGecko. Returns list of (timestamp_ms, price)."""
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={days}"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("prices", [])
+    except Exception:
+        logger.exception("CoinGecko History API failed for coin: %s", coin_id)
+        return []
+
 async def scrape_book(url: str) -> Optional[dict]:
     """
-    Scrape a book page, trying the fast httpx scraper first.
-
-    If the lightweight httpx + regex approach fails (returns ``None``),
-    the function automatically falls back to a full Playwright browser
-    scrape.
-
-    Args:
-        url: Full URL of the book detail page.
-
-    Returns:
-        A dict with keys ``title``, ``price``, ``image_url``,
-        ``currency_symbol``, and ``currency_code``,
-        or ``None`` if both scrapers fail.
+    Scrape a product page, trying the fast httpx scraper first.
+    If it's a CoinGecko URL, uses the CoinGecko API.
     """
+    # Check for CoinGecko URL
+    coingecko_match = re.search(r"coingecko\.com/en/coins/([a-zA-Z0-9-]+)", url)
+    if coingecko_match:
+        coin_id = coingecko_match.group(1)
+        logger.info("Detected CoinGecko URL, using CoinGecko API for: %s", coin_id)
+        return await fetch_coingecko_data(coin_id)
+
+    # Normal ecommerce scraping
     result = await scrape_book_httpx(url)
     if result is not None:
         return result

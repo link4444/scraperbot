@@ -136,6 +136,37 @@ async def _background_scrape(product_id: int, url: str) -> None:
                 scraped.get("currency_symbol", ""),
                 scraped["price"],
             )
+            
+            # --- CoinGecko Real History Integration ---
+            from app.scraper import fetch_coingecko_history
+            import re
+            from datetime import datetime, timezone
+            
+            # Check if this is a CoinGecko URL and if we don't have existing history
+            coingecko_match = re.search(r"coingecko\.com/en/coins/([a-zA-Z0-9-]+)", url)
+            existing_history = session.exec(select(PriceHistory).where(PriceHistory.product_id == product_id)).all()
+            
+            if coingecko_match and len(existing_history) == 0:
+                coin_id = coingecko_match.group(1)
+                logger.info(f"Fetching real 30-day history for {coin_id} from CoinGecko API...")
+                # We can't await inside the sync session context if we aren't careful, but 
+                # _background_scrape is an async function so it's fine!
+                real_history = await fetch_coingecko_history(coin_id, days=30)
+                
+                # Insert the historical data
+                if real_history:
+                    # To avoid overwhelming the DB, we can sample the points (CoinGecko returns hourly points for 30 days = ~720 points)
+                    # Let's take every 12th point (every 12 hours) to keep it lightweight but accurate
+                    sampled_history = real_history[::12]
+                    for timestamp_ms, past_price in sampled_history:
+                        past_entry = PriceHistory(
+                            price=past_price,
+                            product_id=product.id,
+                        )
+                        # CoinGecko returns milliseconds
+                        past_entry.scraped_at = datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
+                        session.add(past_entry)
+                    logger.info(f"Inserted {len(sampled_history)} real historical data points for {coin_id}")
         else:
             product.status = "Error"
             product.title = "Failed to scrape"
