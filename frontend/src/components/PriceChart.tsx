@@ -258,6 +258,8 @@ export default function PriceChart({
               </ComposedChart>
             </ResponsiveContainer>
           </div>
+        )}
+
         {/* Prediction area below the chart */}
         {!loading && data.length > 0 && prediction && (
           <div className="mt-8 pt-6 border-t border-white/[0.06]">
