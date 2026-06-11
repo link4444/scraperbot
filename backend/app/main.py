@@ -107,6 +107,8 @@ async def _background_scrape(product_id: int, url: str) -> None:
     logger.info("Background scrape started for product %d: %s", product_id, url)
     scraped = await scrape_book(url)
 
+    from datetime import datetime, timezone
+
     with Session(engine) as session:
         product = session.get(Product, product_id)
         if product is None:
@@ -123,12 +125,6 @@ async def _background_scrape(product_id: int, url: str) -> None:
             product.currency_code = scraped.get("currency_code", "UNKNOWN")
             product.status = "Active"
 
-            # Create initial price-history entry
-            history_entry = PriceHistory(
-                price=scraped["price"],
-                product_id=product.id,
-            )
-            session.add(history_entry)
             logger.info(
                 "Background scrape succeeded for product %d: '%s' at %s%.2f",
                 product_id,
@@ -136,37 +132,24 @@ async def _background_scrape(product_id: int, url: str) -> None:
                 scraped.get("currency_symbol", ""),
                 scraped["price"],
             )
-            
-            # --- CoinGecko Real History Integration ---
-            from app.scraper import fetch_coingecko_history
-            import re
-            from datetime import datetime, timezone
-            
-            # Check if this is a CoinGecko URL and if we don't have existing history
-            coingecko_match = re.search(r"coingecko\.com/en/coins/([a-zA-Z0-9-]+)", url)
-            existing_history = session.exec(select(PriceHistory).where(PriceHistory.product_id == product_id)).all()
-            
-            if coingecko_match and len(existing_history) <= 1:
-                coin_id = coingecko_match.group(1)
-                logger.info(f"Fetching real 30-day history for {coin_id} from CoinGecko API...")
-                # We can't await inside the sync session context if we aren't careful, but 
-                # _background_scrape is an async function so it's fine!
-                real_history = await fetch_coingecko_history(coin_id, days=30)
-                
-                # Insert the historical data
-                if real_history:
-                    # To avoid overwhelming the DB, we can sample the points (CoinGecko returns hourly points for 30 days = ~720 points)
-                    # Let's take every 12th point (every 12 hours) to keep it lightweight but accurate
-                    sampled_history = real_history[::12]
-                    for timestamp_ms, past_price in sampled_history:
-                        past_entry = PriceHistory(
-                            price=past_price,
-                            product_id=product.id,
-                        )
-                        # CoinGecko returns milliseconds
-                        past_entry.scraped_at = datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
-                        session.add(past_entry)
-                    logger.info(f"Inserted {len(sampled_history)} real historical data points for {coin_id}")
+
+            # --- Real historical data (bundled from CoinGecko) ---
+            raw_history = scraped.get("history", [])
+            if raw_history:
+                # CoinGecko returns ~720 hourly points for 30 days.
+                # Sample every 8th point (~every 8 hours) = ~90 clean data points.
+                sampled = raw_history[::8]
+                for ts_ms, past_price in sampled:
+                    entry = PriceHistory(price=past_price, product_id=product.id)
+                    entry.scraped_at = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+                    session.add(entry)
+                logger.info(
+                    "Inserted %d real historical data points for product %d",
+                    len(sampled), product_id
+                )
+            else:
+                # No real history — just record today's price as the single starting point
+                session.add(PriceHistory(price=scraped["price"], product_id=product.id))
         else:
             product.status = "Error"
             product.title = "Failed to scrape"
@@ -174,6 +157,7 @@ async def _background_scrape(product_id: int, url: str) -> None:
 
         session.add(product)
         session.commit()
+
 
 
 # ---------------------------------------------------------------------------

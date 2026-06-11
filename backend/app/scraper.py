@@ -238,39 +238,64 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
 # Public API — tries httpx first, falls back to Playwright
 # ---------------------------------------------------------------------------
 
-async def fetch_coingecko_data(coin_id: str) -> Optional[dict]:
-    """Fetch current price and metadata from CoinGecko API."""
-    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false"
+async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
+    """
+    Fetch current price, metadata AND 30-day historical data from CoinGecko
+    in exactly TWO API calls (coin details + market_chart).
+    Returns a combined dict with a 'history' key containing raw price data.
+    """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/json"
     }
+    
     try:
-        async with httpx.AsyncClient(timeout=15, headers=headers) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.json()
+        async with httpx.AsyncClient(timeout=20, headers=headers) as client:
+            # Fetch coin details (name, image, current price)
+            detail_url = (
+                f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+                "?localization=false&tickers=false&market_data=true"
+                "&community_data=false&developer_data=false&sparkline=false"
+            )
+            detail_resp = await client.get(detail_url)
+            detail_resp.raise_for_status()
+            data = detail_resp.json()
+            
+            # Fetch 30-day market history
+            history_url = (
+                f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+                "/market_chart?vs_currency=usd&days=30"
+            )
+            history_resp = await client.get(history_url)
+            history_resp.raise_for_status()
+            history_data = history_resp.json()
+            
+            raw_history = history_data.get("prices", [])
+            logger.info("Fetched %d raw historical data points for %s", len(raw_history), coin_id)
             
             return {
                 "title": f"{data['name']} (Crypto)",
-                "price": float(data['market_data']['current_price']['usd']),
-                "image_url": data['image']['large'],
+                "price": float(data["market_data"]["current_price"]["usd"]),
+                "image_url": data["image"]["large"],
                 "currency_symbol": "$",
                 "currency_code": "USD",
+                "history": raw_history,  # list of [timestamp_ms, price]
             }
     except Exception:
         logger.exception("CoinGecko API failed for coin: %s", coin_id)
         return None
 
-async def fetch_coingecko_history(coin_id: str, days: int = 30) -> list[tuple[float, float]]:
-    """Fetch real historical price data from CoinGecko. Returns list of (timestamp_ms, price)."""
+
+# Keep for backwards compatibility / standalone use
+async def fetch_coingecko_history(coin_id: str, days: int = 30) -> list:
+    """Fetch real historical price data from CoinGecko. Returns list of [timestamp_ms, price]."""
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={days}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/json"
     }
     try:
-        async with httpx.AsyncClient(timeout=15, headers=headers) as client:
+        async with httpx.AsyncClient(timeout=20, headers=headers) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             data = resp.json()
@@ -279,17 +304,21 @@ async def fetch_coingecko_history(coin_id: str, days: int = 30) -> list[tuple[fl
         logger.exception("CoinGecko History API failed for coin: %s", coin_id)
         return []
 
+
 async def scrape_book(url: str) -> Optional[dict]:
     """
-    Scrape a product page, trying the fast httpx scraper first.
-    If it's a CoinGecko URL, uses the CoinGecko API.
+    Scrape a product page.
+    - CoinGecko URLs: fetches coin data + 30-day history via the API (no browser).
+    - Everything else: tries fast httpx scraper first, falls back to Playwright.
+    
+    For CoinGecko results, the returned dict includes a 'history' key with
+    raw [[timestamp_ms, price], ...] data for the caller to persist.
     """
-    # Check for CoinGecko URL
     coingecko_match = re.search(r"coingecko\.com/en/coins/([a-zA-Z0-9-]+)", url)
     if coingecko_match:
         coin_id = coingecko_match.group(1)
-        logger.info("Detected CoinGecko URL, using CoinGecko API for: %s", coin_id)
-        return await fetch_coingecko_data(coin_id)
+        logger.info("Detected CoinGecko URL, fetching data+history for: %s", coin_id)
+        return await _fetch_coingecko_all(coin_id)
 
     # Normal ecommerce scraping
     result = await scrape_book_httpx(url)
@@ -298,3 +327,4 @@ async def scrape_book(url: str) -> Optional[dict]:
 
     logger.info("httpx scraper returned None — falling back to Playwright for %s", url)
     return await scrape_book_playwright(url)
+
