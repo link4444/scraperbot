@@ -17,6 +17,7 @@ interface PriceChartProps {
   productId: number;
   productTitle: string;
   targetPrice: number;
+  currencySymbol?: string;
 }
 
 interface PricePoint {
@@ -46,29 +47,11 @@ function formatTimestamp(iso: string): string {
     });
 }
 
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: Array<{ value: number }>;
-  label?: string;
-}
-
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="bg-gray-900/90 backdrop-blur-xl border border-white/[0.1] rounded-xl px-4 py-3 shadow-2xl">
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
-      <p className="text-lg font-bold text-white">
-        ${payload[0].value.toFixed(2)}
-      </p>
-    </div>
-  );
-}
-
 export default function PriceChart({
   productId,
   productTitle,
   targetPrice,
+  currencySymbol = '$',
 }: PriceChartProps) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +96,28 @@ export default function PriceChart({
   const padding = (maxVal - minVal) * 0.15 || 1;
   const yMin = Math.max(0, Math.floor(minVal - padding));
   const yMax = Math.ceil(maxVal + padding);
+
+  // Custom tooltip as a closure to capture currencySymbol
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
+    active?: boolean;
+    payload?: Array<{ value: number }>;
+    label?: string;
+  }) => {
+    if (!active || !payload?.length) return null;
+
+    return (
+      <div className="bg-gray-900/90 backdrop-blur-xl border border-white/[0.1] rounded-xl px-4 py-3 shadow-2xl">
+        <p className="text-xs text-gray-400 mb-1">{label}</p>
+        <p className="text-lg font-bold text-white">
+          {currencySymbol}{payload[0].value.toFixed(2)}
+        </p>
+      </div>
+    );
+  };
 
   return (
     <div className="relative animate-[fadeIn_0.4s_ease-out]">
@@ -197,7 +202,7 @@ export default function PriceChart({
                   tick={{ fill: '#6b7280', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v: number) => `$${v}`}
+                  tickFormatter={(v: number) => `${currencySymbol}${v}`}
                   dx={-4}
                 />
                 <Tooltip content={<CustomTooltip />} />
@@ -207,7 +212,7 @@ export default function PriceChart({
                   strokeDasharray="6 4"
                   strokeWidth={1.5}
                   label={{
-                    value: `Target $${targetPrice.toFixed(2)}`,
+                    value: `Target ${currencySymbol}${targetPrice.toFixed(2)}`,
                     position: 'insideTopRight',
                     fill: '#10b981',
                     fontSize: 11,

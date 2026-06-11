@@ -18,7 +18,6 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
   const [url, setUrl] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState('Tracking product\u2026');
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = (type: 'error' | 'success', message: string) => {
@@ -47,12 +46,6 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
     }
 
     setLoading(true);
-    setLoadingMsg('Scraping product page\u2026');
-
-    // After 8 s, update message so user knows it may take a moment
-    const slowTimer = setTimeout(() => {
-      setLoadingMsg('Still loading\u2014browser is scraping the page (up to 30 s)\u2026');
-    }, 8000);
 
     try {
       await axios.post(
@@ -61,13 +54,11 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
         { timeout: 60000 }, // 60-second client-side timeout
       );
 
-      clearTimeout(slowTimer);
       setUrl('');
       setTargetPrice('');
       addToast('success', 'Product is now being tracked!');
       onProductAdded();
     } catch (err: unknown) {
-      clearTimeout(slowTimer);
       if (axios.isAxiosError(err)) {
         const message =
           err.code === 'ECONNABORTED'
@@ -81,7 +72,6 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
       }
     } finally {
       setLoading(false);
-      setLoadingMsg('Tracking product\u2026');
     }
   };
 
@@ -244,12 +234,7 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <div className="flex flex-col items-start">
-                  <span>{loadingMsg}</span>
-                  {loadingMsg.includes('Still') && (
-                    <span className="text-xs opacity-70">Playwright is rendering the page in a headless browser…</span>
-                  )}
-                </div>
+                <span>Adding product…</span>
               </>
             ) : (
               <>

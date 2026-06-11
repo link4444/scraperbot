@@ -5,6 +5,7 @@ This module initializes the FastAPI application, registers routers,
 configures CORS, and starts the background scheduler on app startup.
 """
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -16,7 +17,7 @@ from sqlmodel import Session, select
 
 # Import models so SQLModel registers the tables before create_all()
 from app import models  # noqa: F401
-from app.database import create_db_and_tables, get_session
+from app.database import create_db_and_tables, engine, get_session
 from app.models import PriceHistory, Product
 from app.schemas import (
     DemoToggleResponse,
@@ -92,6 +93,58 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
+# Background scrape helper
+# ---------------------------------------------------------------------------
+async def _background_scrape(product_id: int, url: str) -> None:
+    """
+    Scrape a product URL in the background and update the DB row.
+
+    On success the product status is set to ``Active`` and an initial
+    PriceHistory entry is recorded.  On failure the status is set to
+    ``Error`` with a descriptive title.
+    """
+    logger.info("Background scrape started for product %d: %s", product_id, url)
+    scraped = await scrape_book(url)
+
+    with Session(engine) as session:
+        product = session.get(Product, product_id)
+        if product is None:
+            logger.warning(
+                "Product %d deleted before background scrape finished", product_id
+            )
+            return
+
+        if scraped is not None:
+            product.title = scraped["title"]
+            product.image_url = scraped["image_url"]
+            product.current_price = scraped["price"]
+            product.currency_symbol = scraped.get("currency_symbol", "")
+            product.currency_code = scraped.get("currency_code", "UNKNOWN")
+            product.status = "Active"
+
+            # Create initial price-history entry
+            history_entry = PriceHistory(
+                price=scraped["price"],
+                product_id=product.id,
+            )
+            session.add(history_entry)
+            logger.info(
+                "Background scrape succeeded for product %d: '%s' at %s%.2f",
+                product_id,
+                scraped["title"],
+                scraped.get("currency_symbol", ""),
+                scraped["price"],
+            )
+        else:
+            product.status = "Error"
+            product.title = "Failed to scrape"
+            logger.error("Background scrape failed for product %d: %s", product_id, url)
+
+        session.add(product)
+        session.commit()
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 @app.get("/")
@@ -101,31 +154,25 @@ async def root():
 
 
 # ---------------------------------------------------------------------------
-# POST /api/products — Track a new product (immediate scrape)
+# POST /api/products — Track a new product (non-blocking background scrape)
 # ---------------------------------------------------------------------------
 @app.post("/api/products", response_model=ProductResponse, status_code=201)
 async def add_product(
     product_in: ProductCreate,
     session: Session = Depends(get_session),
 ):
-    """Add a product URL, scrape it immediately, and persist the result."""
-    # 1. Scrape the product page
-    scraped = await scrape_book(product_in.url)
-    if scraped is None:
-        raise HTTPException(status_code=400, detail="Failed to scrape product")
-
-    # 2. Build the Product row
+    """Accept a product URL, persist it as Pending, and kick off a background scrape."""
+    # 1. Create the Product row immediately with placeholder values
     product = Product(
         url=product_in.url,
-        title=scraped["title"],
-        image_url=scraped["image_url"],
-        current_price=scraped["price"],
+        title="Fetching...",
+        image_url=None,
+        current_price=0.0,
         target_price=product_in.target_price,
-        currency_symbol=scraped.get("currency_symbol", ""),
-        currency_code=scraped.get("currency_code", "UNKNOWN"),
+        status="Pending",
     )
 
-    # 3. Persist — handle duplicate URLs
+    # 2. Persist — handle duplicate URLs
     try:
         session.add(product)
         session.commit()
@@ -137,14 +184,10 @@ async def add_product(
             detail="A product with this URL is already being tracked",
         )
 
-    # 4. Create initial price-history entry
-    history_entry = PriceHistory(
-        price=scraped["price"],
-        product_id=product.id,
-    )
-    session.add(history_entry)
-    session.commit()
+    # 3. Kick off background scrape (non-blocking)
+    asyncio.create_task(_background_scrape(product.id, product_in.url))
 
+    # 4. Return immediately with Pending status
     return product
 
 
@@ -156,6 +199,21 @@ async def list_products(session: Session = Depends(get_session)):
     """Return every tracked product."""
     products = session.exec(select(Product)).all()
     return products
+
+
+# ---------------------------------------------------------------------------
+# GET /api/products/{product_id} — Get a single product
+# ---------------------------------------------------------------------------
+@app.get("/api/products/{product_id}", response_model=ProductResponse)
+async def get_product(
+    product_id: int,
+    session: Session = Depends(get_session),
+):
+    """Return a single product by ID."""
+    product = session.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
 
 
 # ---------------------------------------------------------------------------

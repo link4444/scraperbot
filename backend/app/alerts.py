@@ -43,6 +43,8 @@ async def send_discord_alert(
         else 0.0
     )
 
+    symbol = getattr(product, "currency_symbol", "£")
+
     payload = {
         "embeds": [
             {
@@ -55,12 +57,12 @@ async def send_discord_alert(
                 "fields": [
                     {
                         "name": "Current Price",
-                        "value": f"£{current_price:.2f}",
+                        "value": f"{symbol}{current_price:.2f}",
                         "inline": True,
                     },
                     {
                         "name": "Target Price",
-                        "value": f"£{target_price:.2f}",
+                        "value": f"{symbol}{target_price:.2f}",
                         "inline": True,
                     },
                     {

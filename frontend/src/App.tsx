@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { Activity, Package, Zap, Clock } from 'lucide-react';
 import AddProductForm from './components/AddProductForm';
@@ -27,24 +27,34 @@ function App() {
     }
   }, []);
 
+  // Compute stats
+  const stats = useMemo(() => {
+    const total = products.length;
+    const active = products.filter((p) => p.status === 'Active').length;
+    const pending = products.filter((p) => p.status === 'Pending').length;
+    const triggered = products.filter((p) => p.status === 'Triggered').length;
+    return { total, active, pending, triggered };
+  }, [products]);
+
   // Initial fetch
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Auto-refresh polling: 5s in demo mode, 30s in standard mode
+  // Auto-refresh polling: 2s if pending products, 5s demo, 30s standard
   useEffect(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
-    const pollMs = demoMode ? 5000 : 30000;
+    const hasPending = stats.pending > 0;
+    const pollMs = hasPending ? 2000 : demoMode ? 5000 : 30000;
     intervalRef.current = setInterval(() => {
       fetchProducts();
     }, pollMs);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [demoMode, fetchProducts]);
+  }, [demoMode, stats.pending, fetchProducts]);
 
   const toggleDemoMode = async () => {
     const next = !demoMode;
@@ -178,6 +188,53 @@ function App() {
           </div>
         </header>
 
+        {/* Stats bar */}
+        {products.length > 0 && (
+          <div className="border-b border-white/[0.04] bg-white/[0.015] backdrop-blur-md">
+            <div className="max-w-6xl mx-auto px-6 py-2.5 flex items-center gap-6">
+              {/* Total */}
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="font-medium text-gray-300">{stats.total}</span>
+                <span>Total</span>
+              </div>
+
+              {/* Divider */}
+              <div className="w-px h-4 bg-white/[0.06]" />
+
+              {/* Active */}
+              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="font-medium text-gray-300">{stats.active}</span>
+                <span>Active</span>
+              </div>
+
+              {/* Pending */}
+              {stats.pending > 0 && (
+                <>
+                  <div className="w-px h-4 bg-white/[0.06]" />
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                    <span className="font-medium text-blue-300">{stats.pending}</span>
+                    <span>Pending</span>
+                  </div>
+                </>
+              )}
+
+              {/* Triggered */}
+              {stats.triggered > 0 && (
+                <>
+                  <div className="w-px h-4 bg-white/[0.06]" />
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span className="font-medium text-amber-300">{stats.triggered}</span>
+                    <span>Triggered</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Main content */}
         <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
           {/* Add Product Form */}
@@ -225,7 +282,7 @@ function App() {
           </section>
 
           {/* Price chart for selected product */}
-          {selectedProduct && (
+          {selectedProduct && selectedProduct.status !== 'Pending' && (
             <section
               className="animate-[chartSlideUp_0.4s_ease-out]"
               key={selectedProduct.id}
@@ -234,6 +291,7 @@ function App() {
                 productId={selectedProduct.id}
                 productTitle={selectedProduct.title}
                 targetPrice={selectedProduct.target_price}
+                currencySymbol={selectedProduct.currency_symbol}
               />
             </section>
           )}
