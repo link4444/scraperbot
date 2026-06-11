@@ -171,18 +171,20 @@ export default function PriceChart({
             </div>
           </div>
           
-          <button
-            onClick={handleSeedData}
-            disabled={seeding}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg transition-colors"
-          >
-            {seeding ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Wand2 className="w-3.5 h-3.5" />
-            )}
-            Seed Demo Data
-          </button>
+          {data.length <= 1 && (
+            <button
+              onClick={handleSeedData}
+              disabled={seeding}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg transition-colors"
+            >
+              {seeding ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Wand2 className="w-3.5 h-3.5" />
+              )}
+              Seed Demo Data
+            </button>
+          )}
         </div>
 
         {/* Chart body */}
