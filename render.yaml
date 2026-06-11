@@ -6,13 +6,9 @@ services:
     rootDir: backend
     plan: free
     healthCheckPath: /
-    disk:
-      name: sqlite-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/pricemonitor.db
+        value: sqlite:///./pricemonitor.db
       - key: DISCORD_WEBHOOK_URL
         sync: false
       - key: FRONTEND_URL
