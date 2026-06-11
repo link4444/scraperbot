@@ -383,8 +383,8 @@ import random
 
 def _monte_carlo_probability(current: float, target: float, days: int, drift: float, volatility: float, num_simulations: int = 5000) -> float:
     """
-    Run Monte Carlo simulation using Geometric Brownian Motion to find the 
-    probability of the price dropping to the target within N days.
+    Run Monte Carlo simulation using Geometric Brownian Motion with Mean-Reversion 
+    and Jump-Diffusion to find the probability of the price hitting the target.
     """
     if current <= target:
         return 1.0
@@ -392,15 +392,29 @@ def _monte_carlo_probability(current: float, target: float, days: int, drift: fl
         return 0.0
     
     hits = 0
-    # Pre-calculate the deterministic part of the GBM exponent
-    drift_term = drift - (volatility ** 2) / 2.0
+    # Mean Reversion: we dampen the historical short-term drift over long time horizons
+    # This prevents a bearish 30-day window from projecting an apocalyptic 99% crash over 365 days.
+    dampening_factor = 0.98 
     
     for _ in range(num_simulations):
         sim_price = current
+        current_drift = drift
+        
         for _ in range(days):
+            # Decay the historical trend towards a neutral random walk (0 drift) over time
+            current_drift *= dampening_factor
+            
+            drift_term = current_drift - (volatility ** 2) / 2.0
+            
             # Z ~ Normal(0, 1)
             z = random.gauss(0, 1)
-            daily_return = math.exp(drift_term + volatility * z)
+            
+            # Jump Diffusion: 1% chance per day of a sudden 5-15% flash crash or pump (common in Crypto)
+            jump = 0.0
+            if random.random() < 0.01:
+                jump = random.uniform(-0.15, 0.15)
+                
+            daily_return = math.exp(drift_term + volatility * z + jump)
             sim_price *= daily_return
             
             if sim_price <= target:
@@ -460,7 +474,10 @@ async def get_price_prediction(
                 drift *= points_per_day
                 volatility *= math.sqrt(points_per_day)
             
-            message = f"Ran 5,000 Monte Carlo simulations based on {len(history)} real data points."
+            # Clamp the daily drift so a severe short-term drop doesn't break the math completely
+            drift = max(min(drift, 0.02), -0.02)
+            
+            message = f"Ran 5,000 Mean-Reverting Monte Carlo simulations based on {len(history)} real data points."
             
     # Baseline fallback volatility (e.g. 2% daily fluctuation, slight downward drift if no data)
     if volatility == 0:
