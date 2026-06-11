@@ -70,10 +70,12 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
+APP_VERSION = "2.0.0-combined-coingecko"
+
 app = FastAPI(
     title="Price Monitor API",
     description="Backend API for monitoring product prices and sending alerts.",
-    version="0.1.0",
+    version=APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -91,6 +93,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
+@app.get("/health")
+async def health():
+    return {"status": "ok", "version": APP_VERSION}
 
 
 # ---------------------------------------------------------------------------
