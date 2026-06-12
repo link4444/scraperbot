@@ -261,10 +261,10 @@ async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
             detail_resp.raise_for_status()
             data = detail_resp.json()
             
-            # Fetch 30-day market history
+            # Fetch ALL-TIME market history
             history_url = (
                 f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-                "/market_chart?vs_currency=usd&days=30"
+                "/market_chart?vs_currency=usd&days=max"
             )
             history_resp = await client.get(history_url)
             history_resp.raise_for_status()
@@ -287,7 +287,7 @@ async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
 
 
 # Keep for backwards compatibility / standalone use
-async def fetch_coingecko_history(coin_id: str, days: int = 30) -> list:
+async def fetch_coingecko_history(coin_id: str, days: str = "max") -> list:
     """Fetch real historical price data from CoinGecko. Returns list of [timestamp_ms, price]."""
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={days}"
     headers = {

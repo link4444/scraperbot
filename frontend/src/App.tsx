@@ -15,6 +15,7 @@ import ProductCard from './components/ProductCard';
 import type { Product } from './components/ProductCard';
 import PriceChart from './components/PriceChart';
 import SettingsModal from './components/SettingsModal';
+import { translations } from './translations';
 
 type Tab = 'overview' | 'tracked';
 
@@ -51,6 +52,9 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tab, setTab]                   = useState<Tab>('overview');
   const [filter, setFilter]             = useState<'all' | 'active' | 'triggered' | 'error'>('all');
+  const [lang, setLang]                 = useState<'en' | 'te'>('en');
+
+  const t = translations[lang];
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const formRef     = useRef<HTMLDivElement>(null);
@@ -156,6 +160,14 @@ export default function App() {
               <span className="toggle-knob" />
             </button>
             <div className="divider" />
+            <button
+              onClick={() => setLang(lang === 'en' ? 'te' : 'en')}
+              className="btn-ghost"
+              style={{ padding: '4px 8px', fontSize: '0.8125rem', fontWeight: 600 }}
+              title="Toggle language"
+            >
+              {lang === 'en' ? 'తెలుగు' : 'EN'}
+            </button>
             <button onClick={() => setSettingsOpen(true)} className="btn-icon" title="Settings">
               <Settings size={15} />
             </button>
@@ -181,25 +193,25 @@ export default function App() {
             {/* Hero text content */}
             <div className="hero-content">
               <h1 className="hero-headline">
-                Know the Moment<br />Prices Drop.
+                {t.heroHeadline1}<br />{t.heroHeadline2}
               </h1>
 
               <p className="hero-sub">
-                Scrape any product URL, set your target price, and get instant Discord notifications the moment the price falls. Fully automated.
+                {t.heroSub}
               </p>
 
               <div className="hero-cta">
                 <button className="btn-primary-hero" onClick={scrollToForm}>
-                  Start tracking <span aria-hidden="true" className="btn-arrow">↗</span>
+                  {t.startTracking} <span aria-hidden="true" className="btn-arrow">↗</span>
                 </button>
                 <button className="btn-secondary-hero" onClick={() => setTab('tracked')}>
-                  View products
+                  {t.viewProducts}
                 </button>
               </div>
             </div>
 
             {/* Bottom social-proof footer inside the hero viewport */}
-            <p className="hero-footer-text">Automated price intelligence · Discord Webhooks · Open source</p>
+            <p className="hero-footer-text">{t.footerText}</p>
           </section>
 
           {/* ── Stats bar (only when products exist) ───────────────── */}
@@ -207,10 +219,10 @@ export default function App() {
             <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 48px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                 {[
-                  { label: 'Tracked',   value: stats.total,     color: 'var(--text-primary)' },
-                  { label: 'Active',    value: stats.active,    color: 'var(--accent)' },
-                  { label: 'Triggered', value: stats.triggered, color: '#f59e0b' },
-                  { label: 'Pending',   value: stats.pending,   color: '#60a5fa' },
+                  { label: t.statTracked,   value: stats.total,     color: 'var(--text-primary)' },
+                  { label: t.statActive,    value: stats.active,    color: 'var(--accent)' },
+                  { label: t.statTriggered, value: stats.triggered, color: '#f59e0b' },
+                  { label: t.statPending,   value: stats.pending,   color: '#60a5fa' },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="glass glass-highlight" style={{ position: 'relative', padding: '20px 24px' }}>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</p>
@@ -227,18 +239,18 @@ export default function App() {
               {[
                 {
                   icon: <Zap size={20} color="var(--accent)" />,
-                  title: 'Instant Scraping',
-                  desc: 'Playwright-powered headless browser extraction. Title, price, and cover image in under 5 seconds.',
+                  title: t.feature1Title,
+                  desc: t.feature1Desc,
                 },
                 {
                   icon: <Bell size={20} color="var(--accent)" />,
-                  title: 'Discord Alerts',
-                  desc: 'Rich webhook embeds sent directly to your channel the moment a product hits your target price.',
+                  title: t.feature2Title,
+                  desc: t.feature2Desc,
                 },
                 {
                   icon: <BarChart3 size={20} color="var(--accent)" />,
-                  title: 'Price History & Prediction',
-                  desc: 'Interactive charts with Monte Carlo simulation to estimate the probability of hitting your target.',
+                  title: t.feature3Title,
+                  desc: t.feature3Desc,
                 },
               ].map(({ icon, title, desc }) => (
                 <div key={title} className="glass glass-hover glass-highlight" style={{ position: 'relative', padding: '28px 24px', transition: 'border-color 0.2s, background 0.2s' }}>
@@ -260,10 +272,10 @@ export default function App() {
           <section ref={formRef} style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 96px' }}>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                Track a product
+                {t.trackProduct}
               </h2>
               <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: 6 }}>
-                Paste a URL from books.toscrape.com and set your target price.
+                {t.trackDesc}
               </p>
             </div>
             <AddProductForm onProductAdded={() => { fetchProducts(); setTab('tracked'); }} />
@@ -283,7 +295,7 @@ export default function App() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h2 style={{ fontSize: '1.1875rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                Tracked Products
+                {t.trackedProducts}
               </h2>
               {loading && (
                 <div style={{
@@ -297,19 +309,19 @@ export default function App() {
               {stats.active > 0 && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   <span className="stat-dot" style={{ background: 'var(--accent)' }} />
-                  {stats.active} active
+                  {stats.active} {t.statActive.toLowerCase()}
                 </span>
               )}
               {stats.pending > 0 && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   <span className="stat-dot" style={{ background: '#60a5fa', animation: 'pulse 1.5s ease infinite' }} />
-                  {stats.pending} pending
+                  {stats.pending} {t.statPending.toLowerCase()}
                 </span>
               )}
               {stats.triggered > 0 && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   <span className="stat-dot" style={{ background: '#f59e0b' }} />
-                  {stats.triggered} triggered
+                  {stats.triggered} {t.statTriggered.toLowerCase()}
                 </span>
               )}
             </div>
@@ -319,10 +331,10 @@ export default function App() {
           {products.length > 0 && (
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
               {[
-                { id: 'all', label: 'All Products' },
-                { id: 'active', label: 'Actively Tracked' },
-                { id: 'triggered', label: 'Triggered' },
-                { id: 'error', label: 'Failed' },
+                { id: 'all', label: t.tabAll },
+                { id: 'active', label: t.tabActive },
+                { id: 'triggered', label: t.tabTriggered },
+                { id: 'error', label: t.tabFailed },
               ].map(f => (
                 <button
                   key={f.id}
@@ -349,16 +361,16 @@ export default function App() {
                 <Package size={22} color="var(--text-muted)" />
               </div>
               <div>
-                <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No products tracked yet</p>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Head to Overview to add your first product.</p>
+                <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{t.noProducts}</p>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{t.headToOverview}</p>
               </div>
-              <button className="btn-accent" style={{ marginTop: 8 }} onClick={() => setTab('overview')}>Go to Overview</button>
+              <button className="btn-accent" style={{ marginTop: 8 }} onClick={() => setTab('overview')}>{t.goToOverview}</button>
             </div>
           ) : (
             <>
               {filteredProducts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                  No products match this filter.
+                  {t.noMatch}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
