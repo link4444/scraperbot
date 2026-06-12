@@ -67,6 +67,7 @@ export default function PriceChart({
   aiProvider = 'online',
   rates = {},
   onDataSeeded,
+  onUpdate,
 }: PriceChartProps) {
   const [data, setData]           = useState<ChartDataPoint[]>([]);
   const [prediction, setPrediction] = useState<PricePrediction | null>(null);
@@ -87,6 +88,13 @@ export default function PriceChart({
   const finalSymbol = SYMBOLS[displayCurrency] || currencySymbol;
   
   const targetPrice = originalTargetPrice * conversionRate;
+
+  const formatPrice = (price: number) => {
+    if (price === 0) return '0.00';
+    if (price < 0.01) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+    if (price < 1) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
   const fetchData = async (cancelled = false) => {
     setLoading(true);
@@ -160,8 +168,8 @@ export default function PriceChart({
     setSettingTarget(type);
     try {
       const basePrice = price / conversionRate;
-      await axios.put(`/api/products/${productId}`, { target_price: basePrice });
-      // Call parent update if passed
+      await axios.patch(`/api/products/${productId}`, { target_price: basePrice });
+      onUpdate?.();
     } catch (e) {
       console.error(e);
     } finally {
@@ -195,7 +203,7 @@ export default function PriceChart({
       }}>
         <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{label}</p>
         <p style={{ fontSize: '1.125rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
-          {finalSymbol}{payload[0].value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
+          {finalSymbol}{formatPrice(payload[0].value)}
         </p>
       </div>
     );
@@ -452,7 +460,7 @@ export default function PriceChart({
                         {tgt.type}
                       </span>
                       <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>
-                        {finalSymbol}{(tgt.price * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
+                        {finalSymbol}{formatPrice(tgt.price * conversionRate)}
                       </span>
                     </div>
                     <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>

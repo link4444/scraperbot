@@ -2,14 +2,18 @@ import { useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { Plus, Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
-interface Props { onProductAdded: () => void; }
+interface Props { 
+  onProductAdded: () => void;
+  rates: Record<string, number>;
+}
 
 interface Toast { id: number; type: 'error' | 'success'; message: string; }
 let _id = 0;
 
-export default function AddProductForm({ onProductAdded }: Props) {
+export default function AddProductForm({ onProductAdded, rates }: Props) {
   const [url,    setUrl]    = useState('');
   const [price,  setPrice]  = useState('');
+  const [displayCurrency, setDisplayCurrency] = useState('USD');
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -25,7 +29,13 @@ export default function AddProductForm({ onProductAdded }: Props) {
     if (!price || Number(price) <= 0) { toast('error', 'Please enter a valid target price.'); return; }
     setLoading(true);
     try {
-      await axios.post('/api/products', { url: url.trim(), target_price: Number(price) }, { timeout: 60000 });
+      const rate = rates[displayCurrency] || 1;
+      const targetUsd = Number(price) / rate;
+      await axios.post('/api/products', { 
+        url: url.trim(), 
+        target_price: targetUsd,
+        display_currency: displayCurrency 
+      }, { timeout: 60000 });
       setUrl(''); setPrice('');
       toast('success', 'Product is now being tracked!');
       onProductAdded();
@@ -135,24 +145,56 @@ export default function AddProductForm({ onProductAdded }: Props) {
             </div>
 
             {/* Target Price */}
-            <div>
-              <label
-                htmlFor="add-price"
-                style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+            <div style={{ position: 'relative', width: '100%', maxWidth: 280, display: 'flex' }}>
+              <select 
+                value={displayCurrency} 
+                onChange={e => setDisplayCurrency(e.target.value)}
+                style={{
+                  padding: '0 16px',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--border)',
+                  borderRight: 'none',
+                  borderRadius: '16px 0 0 16px',
+                  color: '#fff',
+                  fontWeight: 600,
+                  outline: 'none',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  minWidth: '80px',
+                  textAlign: 'center'
+                }}
               >
-                Target Price
-              </label>
-              <input
-                id="add-price"
-                type="number"
-                value={price}
-                onChange={e => setPrice(e.target.value)}
-                placeholder="e.g. 12.99"
-                min="0.01"
-                step="0.01"
-                disabled={loading}
-                className="input"
-              />
+                <option value="USD">USD</option>
+                <option value="INR">INR</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+              </select>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <span style={{
+                  position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)', fontSize: '1.25rem', fontWeight: 600,
+                }}>
+                  {displayCurrency === 'USD' ? '$' : displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : '£'}
+                </span>
+                <input
+                  type="number"
+                  placeholder="Target Price"
+                  value={price}
+                  onChange={e => setPrice(e.target.value)}
+                  disabled={loading}
+                  step="0.01"
+                  min="0"
+                  style={{
+                    width: '100%', padding: '20px 24px 20px 48px',
+                    fontSize: '1.125rem', color: '#ffffff',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border)', borderRadius: '0 16px 16px 0',
+                    outline: 'none', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  onFocus={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
+                  onBlur={e => e.target.style.background = 'rgba(255,255,255,0.03)'}
+                />
+              </div>
             </div>
 
             {/* Submit */}

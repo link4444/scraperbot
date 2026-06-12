@@ -110,7 +110,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
                 result_json = resp.json().get("response", "{}")
         except Exception as e:
             logger.error(f"Ollama failed: {e}")
-            raise ValueError("Local AI Model failed to respond.")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
     else:
         # Fallback to online/mock since keys might not exist in this environment.
         # Ideally, we'd hit OpenAI or Gemini here.

@@ -8,6 +8,7 @@ import {
   Bell,
   BarChart3,
   Shield,
+  Plus
 } from 'lucide-react';
 import AddProductForm from './components/AddProductForm';
 import ProductCard from './components/ProductCard';
@@ -16,7 +17,7 @@ import PriceChart from './components/PriceChart';
 import SettingsModal from './components/SettingsModal';
 import { translations } from './translations';
 
-type Tab = 'overview' | 'tracked';
+type Tab = 'overview' | 'add';
 
 /* ─── Scroll-driven orb animation (vanilla, outside React) ─────────────── */
 function useOrbScroll(orbRef: React.RefObject<HTMLDivElement | null>) {
@@ -52,7 +53,6 @@ export default function App() {
   const [tab, setTab]                   = useState<Tab>('overview');
   const [filter, setFilter]             = useState<'all' | 'active' | 'triggered' | 'error'>('all');
   const [lang, setLang]                 = useState<'en' | 'te' | 'hi'>('en');
-  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'INR' | 'EUR' | 'GBP'>('USD');
   const [aiProvider, setAiProvider]     = useState<'online' | 'local'>('online');
   const [rates, setRates]               = useState<Record<string, number>>({});
 
@@ -142,11 +142,8 @@ export default function App() {
             <button onClick={() => setTab('overview')} className={`nav-tab${tab === 'overview' ? ' active' : ''}`}>
               <LayoutGrid size={14} /> Overview
             </button>
-            <button onClick={() => setTab('tracked')} className={`nav-tab${tab === 'tracked' ? ' active' : ''}`}>
-              <Package size={14} /> Tracked
-              {stats.total > 0 && (
-                <span className={`tab-badge${tab === 'tracked' ? ' active' : ''}`}>{stats.total}</span>
-              )}
+            <button onClick={() => setTab('add')} className={`nav-tab${tab === 'add' ? ' active' : ''}`}>
+              <Plus size={14} /> Add Product
             </button>
           </nav>
 
@@ -170,18 +167,6 @@ export default function App() {
               title="Toggle language"
             >
               {lang.toUpperCase()}
-            </button>
-            <div className="divider" />
-            <button
-              onClick={() => {
-                const next = { USD: 'INR', INR: 'EUR', EUR: 'GBP', GBP: 'USD' }[displayCurrency] as any;
-                setDisplayCurrency(next);
-              }}
-              className="btn-ghost"
-              style={{ padding: '4px 8px', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--accent)' }}
-              title="Toggle display currency"
-            >
-              {displayCurrency}
             </button>
             <div className="divider" />
             <button
@@ -226,10 +211,10 @@ export default function App() {
 
               <div className="hero-cta">
                 <button className="btn-primary-hero" onClick={scrollToForm}>
-                  {t.startTracking} <span aria-hidden="true" className="btn-arrow">↗</span>
+                  {t.viewProducts} <span aria-hidden="true" className="btn-arrow">↓</span>
                 </button>
-                <button className="btn-secondary-hero" onClick={() => setTab('tracked')}>
-                  {t.viewProducts}
+                <button className="btn-secondary-hero" onClick={() => setTab('add')}>
+                  {t.trackProduct}
                 </button>
               </div>
             </div>
@@ -292,8 +277,135 @@ export default function App() {
             </div>
           </section>
 
-          {/* ── Add product form ───────────────────────────────────── */}
-          <section ref={formRef} style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 96px' }}>
+          {/* ── Tracked products under Overview ────────────────────── */}
+          <section ref={formRef} style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 24px 80px', animation: 'fadeUp 0.35s ease both' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid var(--border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h2 style={{ fontSize: '1.1875rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                  {t.trackedProducts}
+                </h2>
+                {loading && (
+                  <div style={{
+                    width: 16, height: 16, border: '2px solid var(--border)',
+                    borderTopColor: 'var(--accent)', borderRadius: '50%',
+                    animation: 'spin 0.7s linear infinite',
+                  }} />
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                {stats.active > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span className="stat-dot" style={{ background: 'var(--accent)' }} />
+                    {stats.active} {t.statActive.toLowerCase()}
+                  </span>
+                )}
+                {stats.pending > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span className="stat-dot" style={{ background: '#60a5fa', animation: 'pulse 1.5s ease infinite' }} />
+                    {stats.pending} {t.statPending.toLowerCase()}
+                  </span>
+                )}
+                {stats.triggered > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span className="stat-dot" style={{ background: '#f59e0b' }} />
+                    {stats.triggered} {t.statTriggered.toLowerCase()}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Sub-navigation tabs */}
+            {products.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
+                {[
+                  { id: 'all', label: t.tabAll },
+                  { id: 'active', label: t.tabActive },
+                  { id: 'triggered', label: t.tabTriggered },
+                  { id: 'error', label: t.tabFailed },
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFilter(f.id as any)}
+                    className="btn-ghost"
+                    style={{
+                      padding: '6px 14px', borderRadius: 20, fontSize: '0.8125rem',
+                      fontWeight: filter === f.id ? 600 : 500,
+                      background: filter === f.id ? 'var(--bg-hover)' : 'transparent',
+                      color: filter === f.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      border: `1px solid ${filter === f.id ? 'var(--border)' : 'transparent'}`,
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && products.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '64px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                <div className="glass" style={{ width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Package size={22} color="var(--text-muted)" />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{t.noProducts}</p>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>You can add a new product using the Add Product tab.</p>
+                </div>
+                <button className="btn-accent" style={{ marginTop: 8 }} onClick={() => setTab('add')}>{t.trackProduct}</button>
+              </div>
+            ) : (
+              <>
+                {filteredProducts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                    {t.noMatch}
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+                    {filteredProducts.map((product, idx) => (
+                      <div key={product.id} style={{ animation: `fadeUp 0.35s ${idx * 50}ms ease both` }}>
+                      <ProductCard
+                        product={product}
+                        isSelected={selectedId === product.id}
+                        onSelect={handleSelect}
+                        onDelete={handleDelete}
+                        onUpdate={fetchProducts}
+                        rates={rates}
+                      />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedProduct && selectedProduct.status !== 'Pending' && (
+                  <div style={{ marginTop: 24, animation: 'chartSlideUp 0.4s ease both' }} key={selectedProduct.id}>
+                    <PriceChart
+                      productId={selectedProduct.id}
+                      productTitle={selectedProduct.title}
+                      targetPrice={selectedProduct.target_price}
+                      currencySymbol={selectedProduct.currency_symbol}
+                      currencyCode={selectedProduct.currency_code}
+                      displayCurrency={selectedProduct.display_currency || 'USD'}
+                      rates={rates}
+                      aiProvider={aiProvider}
+                      onUpdate={fetchProducts}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* ADD TAB                                                      */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {tab === 'add' && (
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '80px 24px', animation: 'fadeUp 0.35s ease both' }}>
+          <section style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 96px' }}>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                 {t.trackProduct}
@@ -302,137 +414,11 @@ export default function App() {
                 {t.trackDesc}
               </p>
             </div>
-            <AddProductForm onProductAdded={() => { fetchProducts(); setTab('tracked'); }} />
+            <AddProductForm onProductAdded={() => { fetchProducts(); setTab('overview'); }} rates={rates} />
           </section>
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════ */}
-      {/* TRACKED TAB                                                  */}
-      {/* ════════════════════════════════════════════════════════════ */}
-      {tab === 'tracked' && (
-        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 24px 80px', animation: 'fadeUp 0.35s ease both' }}>
-          {/* Header row */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid var(--border)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: '1.1875rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                {t.trackedProducts}
-              </h2>
-              {loading && (
-                <div style={{
-                  width: 16, height: 16, border: '2px solid var(--border)',
-                  borderTopColor: 'var(--accent)', borderRadius: '50%',
-                  animation: 'spin 0.7s linear infinite',
-                }} />
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-              {stats.active > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  <span className="stat-dot" style={{ background: 'var(--accent)' }} />
-                  {stats.active} {t.statActive.toLowerCase()}
-                </span>
-              )}
-              {stats.pending > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  <span className="stat-dot" style={{ background: '#60a5fa', animation: 'pulse 1.5s ease infinite' }} />
-                  {stats.pending} {t.statPending.toLowerCase()}
-                </span>
-              )}
-              {stats.triggered > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  <span className="stat-dot" style={{ background: '#f59e0b' }} />
-                  {stats.triggered} {t.statTriggered.toLowerCase()}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Sub-navigation tabs */}
-          {products.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
-              {[
-                { id: 'all', label: t.tabAll },
-                { id: 'active', label: t.tabActive },
-                { id: 'triggered', label: t.tabTriggered },
-                { id: 'error', label: t.tabFailed },
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilter(f.id as any)}
-                  className="btn-ghost"
-                  style={{
-                    padding: '6px 14px', borderRadius: 20, fontSize: '0.8125rem',
-                    fontWeight: filter === f.id ? 600 : 500,
-                    background: filter === f.id ? 'var(--bg-hover)' : 'transparent',
-                    color: filter === f.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    border: `1px solid ${filter === f.id ? 'var(--border)' : 'transparent'}`,
-                  }}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!loading && products.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '64px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <div className="glass" style={{ width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Package size={22} color="var(--text-muted)" />
-              </div>
-              <div>
-                <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{t.noProducts}</p>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{t.headToOverview}</p>
-              </div>
-              <button className="btn-accent" style={{ marginTop: 8 }} onClick={() => setTab('overview')}>{t.goToOverview}</button>
-            </div>
-          ) : (
-            <>
-              {filteredProducts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                  {t.noMatch}
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
-                  {filteredProducts.map((product, idx) => (
-                    <div key={product.id} style={{ animation: `fadeUp 0.35s ${idx * 50}ms ease both` }}>
-                    <ProductCard
-                      product={product}
-                      isSelected={selectedId === product.id}
-                      onSelect={handleSelect}
-                      onDelete={handleDelete}
-                      onUpdate={fetchProducts}
-                      displayCurrency={displayCurrency}
-                      rates={rates}
-                    />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedProduct && selectedProduct.status !== 'Pending' && (
-                <div style={{ marginTop: 24, animation: 'chartSlideUp 0.4s ease both' }} key={selectedProduct.id}>
-                  <PriceChart
-                    productId={selectedProduct.id}
-                    productTitle={selectedProduct.title}
-                    targetPrice={selectedProduct.target_price}
-                    currencySymbol={selectedProduct.currency_symbol}
-                    currencyCode={selectedProduct.currency_code}
-                    displayCurrency={displayCurrency}
-                    rates={rates}
-                    aiProvider={aiProvider}
-                    onUpdate={fetchProducts}
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
       {/* Footer */}
       <footer style={{

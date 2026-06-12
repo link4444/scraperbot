@@ -225,6 +225,7 @@ async def add_product(
         image_url=None,
         current_price=0.0,
         target_price=product_in.target_price,
+        display_currency=product_in.display_currency,
         status="Pending",
     )
 

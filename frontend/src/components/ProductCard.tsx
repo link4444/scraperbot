@@ -25,6 +25,7 @@ export interface Product {
   status: string;
   currency_symbol: string;
   currency_code: string;
+  display_currency?: string;
   created_at: string;
 }
 
@@ -48,13 +49,14 @@ const STATUS: Record<string, { dot: string; text: string; badge: string; badgeBg
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-export default function ProductCard({ product, isSelected, onSelect, onDelete, onUpdate, displayCurrency = 'USD', rates = {} }: Props) {
+export default function ProductCard({ product, isSelected, onSelect, onDelete, onUpdate, rates = {} }: Props) {
   const [editing,  setEditing]  = useState(false);
   const [target,   setTarget]   = useState(product.target_price.toString());
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
+  const displayCurrency = product.display_currency || 'USD';
   const rateToUSD = 1 / (rates[product.currency_code] || 1);
   const conversionRate = rates[product.currency_code] ? rateToUSD * (rates[displayCurrency] || 1) : 1;
   const SYMBOLS: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', GBP: '£' };
@@ -62,6 +64,13 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
   
   const currentPrice = product.current_price * conversionRate;
   const targetPrice = product.target_price * conversionRate;
+
+  const formatPrice = (price: number) => {
+    if (price === 0) return '0.00';
+    if (price < 0.01) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+    if (price < 1) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
   const isPending = product.status === 'Pending';
   const isError   = product.status === 'Error';
@@ -304,7 +313,7 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
             </p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{ fontSize: '1.625rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                {symbol}{currentPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
+                {symbol}{formatPrice(currentPrice)}
               </span>
               <span style={{
                 fontSize: '0.6875rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5,
@@ -378,7 +387,7 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
               onClick={e => e.stopPropagation()}
             >
               <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent)' }}>
-                {symbol}{targetPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
+                {symbol}{formatPrice(targetPrice)}
               </span>
               <button onClick={() => setEditing(true)} className="btn-icon" title="Edit target">
                 <Edit3 size={12} />

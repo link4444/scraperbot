@@ -21,6 +21,7 @@ class ProductCreate(BaseModel):
 
     url: str
     target_price: float = Field(..., gt=0, description="Must be a positive number")
+    display_currency: str = "USD"
 
 
 class ProductUpdate(BaseModel):
@@ -42,6 +43,7 @@ class ProductResponse(BaseModel):
     status: str
     currency_symbol: str
     currency_code: str
+    display_currency: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
