@@ -292,6 +292,31 @@ async def delete_product(
 
 
 # ---------------------------------------------------------------------------
+# POST /api/products/{product_id}/retry — Retry scraping a failed product
+# ---------------------------------------------------------------------------
+@app.post("/api/products/{product_id}/retry", response_model=ProductResponse)
+async def retry_product(
+    product_id: int,
+    session: Session = Depends(get_session),
+):
+    """Reset a product to Pending and trigger a new background scrape."""
+    product = session.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    product.status = "Pending"
+    session.add(product)
+    session.commit()
+    session.refresh(product)
+
+    task = asyncio.create_task(_background_scrape(product.id, product.url))
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
+
+    return product
+
+
+# ---------------------------------------------------------------------------
 # GET /api/products/{product_id}/history — Price history for a product
 # ---------------------------------------------------------------------------
 @app.get(

@@ -11,6 +11,7 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 
 export interface Product {
@@ -50,6 +51,7 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
   const [target,   setTarget]   = useState(product.target_price.toString());
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const isPending = product.status === 'Pending';
   const isError   = product.status === 'Error';
@@ -70,6 +72,20 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
       setEditing(false);
       onUpdate();
     } finally { setSaving(false); }
+  };
+
+  const handleRetry = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      await axios.post(`/api/products/${product.id}/retry`);
+      onUpdate();
+    } catch (err) {
+      console.error('Failed to retry', err);
+    } finally {
+      setRetrying(false);
+    }
   };
 
   const del = async () => {
@@ -252,12 +268,23 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
           <span style={{ fontSize: '0.8125rem', color: '#60a5fa', opacity: 0.7 }}>Scraping page…</span>
         </div>
       ) : isError ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <AlertTriangle size={14} color="#f87171" />
-          <div>
-            <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f87171' }}>Scraping failed</p>
-            <p style={{ fontSize: '0.75rem', color: 'rgba(248,113,113,0.6)', marginTop: 2 }}>Product page could not be read</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertTriangle size={14} color="#f87171" />
+            <div>
+              <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f87171' }}>Scraping failed</p>
+              <p style={{ fontSize: '0.75rem', color: 'rgba(248,113,113,0.6)', marginTop: 2 }}>Product page could not be read</p>
+            </div>
           </div>
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="btn-ghost"
+            style={{ padding: '6px 12px', fontSize: '0.75rem', borderColor: 'rgba(248,113,113,0.25)', color: '#f87171', background: 'rgba(248,113,113,0.05)' }}
+          >
+            {retrying ? <Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : <RefreshCw size={13} />}
+            Retry
+          </button>
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
