@@ -117,64 +117,82 @@ async def _background_scrape(product_id: int, url: str) -> None:
     PriceHistory entry is recorded.  On failure the status is set to
     ``Error`` with a descriptive title.
     """
-    logger.info("Background scrape started for product %d: %s", product_id, url)
-    
-    scraped = None
     try:
-        scraped = await scrape_book(url)
-    except Exception as e:
-        logger.exception("scrape_book threw an unhandled exception for product %d", product_id)
+        logger.info("Background scrape started for product %d: %s", product_id, url)
+        
+        scraped = None
+        try:
+            # Enforce a hard 45-second timeout in case Playwright hangs completely at the OS level
+            scraped = await asyncio.wait_for(scrape_book(url), timeout=45.0)
+        except asyncio.TimeoutError:
+            logger.error("scrape_book timed out after 45 seconds for %s", url)
+            scraped = None
+        except Exception as e:
+            logger.exception("scrape_book threw an unhandled exception for product %d", product_id)
+            scraped = None
 
-    from datetime import datetime, timezone
+        from datetime import datetime, timezone
 
-    with Session(engine) as session:
-        product = session.get(Product, product_id)
-        if product is None:
-            logger.warning(
-                "Product %d deleted before background scrape finished", product_id
-            )
-            return
+        with Session(engine) as session:
+            product = session.get(Product, product_id)
+            if product is None:
+                logger.warning("Product %d deleted before background scrape finished", product_id)
+                return
 
-        if scraped is not None:
-            product.title = scraped["title"]
-            product.image_url = scraped["image_url"]
-            product.current_price = scraped["price"]
-            product.currency_symbol = scraped.get("currency_symbol", "")
-            product.currency_code = scraped.get("currency_code", "UNKNOWN")
-            product.status = "Active"
+            if scraped is not None:
+                product.title = scraped["title"]
+                product.image_url = scraped["image_url"]
+                product.current_price = scraped["price"]
+                product.currency_symbol = scraped.get("currency_symbol", "")
+                product.currency_code = scraped.get("currency_code", "UNKNOWN")
+                product.status = "Active"
 
-            logger.info(
-                "Background scrape succeeded for product %d: '%s' at %s%.2f",
-                product_id,
-                scraped["title"],
-                scraped.get("currency_symbol", ""),
-                scraped["price"],
-            )
-
-            # --- Real historical data (bundled from CoinGecko) ---
-            raw_history = scraped.get("history", [])
-            if raw_history:
-                # CoinGecko returns ~720 hourly points for 30 days.
-                # Sample every 8th point (~every 8 hours) = ~90 clean data points.
-                sampled = raw_history[::8]
-                for ts_ms, past_price in sampled:
-                    entry = PriceHistory(price=past_price, product_id=product.id)
-                    entry.scraped_at = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
-                    session.add(entry)
                 logger.info(
-                    "Inserted %d real historical data points for product %d",
-                    len(sampled), product_id
+                    "Background scrape succeeded for product %d: '%s' at %s%.2f",
+                    product_id,
+                    scraped["title"],
+                    scraped.get("currency_symbol", ""),
+                    scraped["price"],
                 )
-            else:
-                # No real history — just record today's price as the single starting point
-                session.add(PriceHistory(price=scraped["price"], product_id=product.id))
-        else:
-            product.status = "Error"
-            product.title = "Failed to scrape"
-            logger.error("Background scrape failed for product %d: %s", product_id, url)
 
-        session.add(product)
-        session.commit()
+                # --- Real historical data (bundled from CoinGecko) ---
+                raw_history = scraped.get("history", [])
+                if raw_history:
+                    # CoinGecko returns ~720 hourly points for 30 days.
+                    # Sample every 8th point (~every 8 hours) = ~90 clean data points.
+                    sampled = raw_history[::8]
+                    for ts_ms, past_price in sampled:
+                        entry = PriceHistory(price=past_price, product_id=product.id)
+                        entry.scraped_at = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+                        session.add(entry)
+                    logger.info(
+                        "Inserted %d real historical data points for product %d",
+                        len(sampled), product_id
+                    )
+                else:
+                    # No real history — just record today's price as the single starting point
+                    session.add(PriceHistory(price=scraped["price"], product_id=product.id))
+            else:
+                product.status = "Error"
+                product.title = "Failed to scrape"
+                logger.error("Background scrape failed for product %d: %s", product_id, url)
+
+            session.add(product)
+            session.commit()
+
+    except Exception as catastrophic_e:
+        logger.exception("Catastrophic error in _background_scrape for product %d: %s", product_id, catastrophic_e)
+        try:
+            # Rescue the stuck Pending state
+            with Session(engine) as rescue_session:
+                product = rescue_session.get(Product, product_id)
+                if product:
+                    product.status = "Error"
+                    product.title = "Internal Scraper Error"
+                    rescue_session.add(product)
+                    rescue_session.commit()
+        except Exception:
+            pass
 
 
 
