@@ -1,250 +1,176 @@
 import { useState, type FormEvent } from 'react';
 import axios from 'axios';
-import { Plus, Link, DollarSign, Loader2, AlertCircle, CheckCircle2, X, Globe } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
-interface AddProductFormProps {
-  onProductAdded: () => void;
-}
+interface Props { onProductAdded: () => void; }
 
-interface Toast {
-  id: number;
-  type: 'error' | 'success';
-  message: string;
-}
+interface Toast { id: number; type: 'error' | 'success'; message: string; }
+let _id = 0;
 
-let toastId = 0;
-
-export default function AddProductForm({ onProductAdded }: AddProductFormProps) {
-  const [url, setUrl] = useState('');
-  const [targetPrice, setTargetPrice] = useState('');
+export default function AddProductForm({ onProductAdded }: Props) {
+  const [url,    setUrl]    = useState('');
+  const [price,  setPrice]  = useState('');
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = (type: 'error' | 'success', message: string) => {
-    const id = ++toastId;
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5000);
-  };
-
-  const removeToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const toast = (type: 'error' | 'success', message: string) => {
+    const id = ++_id;
+    setToasts(p => [...p, { id, type, message }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 5000);
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (!url.trim()) {
-      addToast('error', 'Please enter a product URL.');
-      return;
-    }
-
-    if (!targetPrice || Number(targetPrice) <= 0) {
-      addToast('error', 'Please enter a valid target price.');
-      return;
-    }
-
+    if (!url.trim()) { toast('error', 'Please enter a product URL.'); return; }
+    if (!price || Number(price) <= 0) { toast('error', 'Please enter a valid target price.'); return; }
     setLoading(true);
-
     try {
-      console.log('Sending POST request to:', axios.defaults.baseURL + '/api/products');
-      const response = await axios.post(
-        '/api/products',
-        { url: url.trim(), target_price: Number(targetPrice) },
-        { timeout: 60000 }, // 60-second client-side timeout
-      );
-      console.log('Response received:', response.data);
-
-      setUrl('');
-      setTargetPrice('');
-      addToast('success', 'Product is now being tracked!');
+      await axios.post('/api/products', { url: url.trim(), target_price: Number(price) }, { timeout: 60000 });
+      setUrl(''); setPrice('');
+      toast('success', 'Product is now being tracked!');
       onProductAdded();
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        const message =
-          err.code === 'ECONNABORTED'
-            ? 'Request timed out — the server is taking too long. Please try again.'
-            : err.response?.data?.detail ||
-              err.response?.data?.message ||
-              'Failed to add product. Please try again.';
-        addToast('error', message);
+        const msg = err.code === 'ECONNABORTED'
+          ? 'Request timed out. Please try again.'
+          : err.response?.data?.detail || err.response?.data?.message || 'Failed to add product.';
+        toast('error', msg);
       } else {
-        addToast('error', 'An unexpected error occurred.');
+        toast('error', 'An unexpected error occurred.');
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="relative w-full max-w-2xl mx-auto">
-      {/* Toast notifications */}
-      <div className="fixed top-6 right-6 z-50 flex flex-col gap-3">
-        {toasts.map((toast) => (
+    <div style={{ position: 'relative', width: '100%' }}>
+
+      {/* Toast stack */}
+      <div style={{ position: 'fixed', top: 80, right: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360 }}>
+        {toasts.map(t => (
           <div
-            key={toast.id}
-            className={`
-              flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl backdrop-blur-xl
-              border animate-[slideIn_0.3s_ease-out]
-              ${
-                toast.type === 'error'
-                  ? 'bg-red-500/15 border-red-500/30 text-red-300'
-                  : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-              }
-            `}
+            key={t.id}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '13px 16px', borderRadius: 12,
+              background: t.type === 'error' ? 'rgba(248,113,113,0.1)' : 'rgba(0,229,160,0.1)',
+              border: `1px solid ${t.type === 'error' ? 'rgba(248,113,113,0.25)' : 'rgba(0,229,160,0.25)'}`,
+              backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+              animation: 'slideIn 0.3s ease both',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+            }}
           >
-            {toast.type === 'error' ? (
-              <AlertCircle className="w-5 h-5 shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
-            )}
-            <span className="text-sm font-medium">{toast.message}</span>
+            {t.type === 'error'
+              ? <AlertCircle size={16} color="#f87171" style={{ flexShrink: 0, marginTop: 1 }} />
+              : <CheckCircle2 size={16} color="var(--accent)" style={{ flexShrink: 0, marginTop: 1 }} />
+            }
+            <span style={{ fontSize: '0.8125rem', color: t.type === 'error' ? '#f87171' : 'var(--accent)', flex: 1, lineHeight: 1.5 }}>
+              {t.message}
+            </span>
             <button
-              onClick={() => removeToast(toast.id)}
-              className="ml-2 p-0.5 rounded-md hover:bg-white/10 transition-colors"
+              onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-muted)', flexShrink: 0 }}
             >
-              <X className="w-4 h-4" />
+              <X size={14} />
             </button>
           </div>
         ))}
       </div>
 
-      {/* Ambient glow behind card */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 via-cyan-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-60" />
-
       {/* Form card */}
-      <div className="relative bg-white/[0.02] backdrop-blur-3xl border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/50">
-        {/* Card header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-lg shadow-violet-500/25">
-            <Plus className="w-5 h-5 text-white" />
+      <div style={{
+        background: 'var(--bg-surface)',
+        backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        padding: '32px',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.35)',
+      }}>
+        {/* top highlight */}
+        <div aria-hidden="true" style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Plus size={18} color="var(--accent)" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-white">Track a Product</h2>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+              Track a Product
+            </h2>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: 2 }}>
               Paste a URL and set your target price — currency is auto-detected
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* URL input */}
-          <div className="group relative">
-            <label
-              htmlFor="product-url"
-              className="block text-sm font-medium text-gray-300 mb-2"
-            >
-              Product URL
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <Link className="w-4.5 h-4.5 text-gray-500 group-focus-within:text-violet-400 transition-colors duration-200" />
-              </div>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* URL */}
+            <div>
+              <label
+                htmlFor="add-url"
+                style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                Product URL
+              </label>
               <input
-                id="product-url"
+                id="add-url"
                 type="url"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.example.com/product..."
+                onChange={e => setUrl(e.target.value)}
+                placeholder="https://books.toscrape.com/catalogue/..."
                 disabled={loading}
-                className="
-                  w-full pl-12 pr-4 py-3.5 rounded-xl
-                  bg-white/[0.04] border border-white/[0.08]
-                  text-white placeholder-gray-500
-                  text-sm
-                  outline-none
-                  transition-all duration-300 ease-out
-                  focus:border-violet-500/50 focus:bg-white/[0.06]
-                  focus:ring-2 focus:ring-violet-500/20
-                  hover:border-white/[0.15] hover:bg-white/[0.05]
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                "
+                className="input"
               />
             </div>
-          </div>
 
-          {/* Target price input */}
-          <div className="group relative">
-            <label
-              htmlFor="target-price"
-              className="block text-sm font-medium text-gray-300 mb-2"
-            >
-              Target Price
-              <span className="ml-2 text-xs text-gray-500 font-normal">(currency auto-detected from page)</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <DollarSign className="w-4.5 h-4.5 text-gray-500 group-focus-within:text-emerald-400 transition-colors duration-200" />
-              </div>
+            {/* Target Price */}
+            <div>
+              <label
+                htmlFor="add-price"
+                style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                Target Price
+              </label>
               <input
-                id="target-price"
+                id="add-price"
                 type="number"
-                value={targetPrice}
-                onChange={(e) => setTargetPrice(e.target.value)}
-                placeholder="0.00"
-                min="0"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                placeholder="e.g. 12.99"
+                min="0.01"
                 step="0.01"
                 disabled={loading}
-                className="
-                  w-full pl-12 pr-4 py-3.5 rounded-xl
-                  bg-white/[0.04] border border-white/[0.08]
-                  text-white placeholder-gray-500
-                  text-sm
-                  outline-none
-                  transition-all duration-300 ease-out
-                  focus:border-emerald-500/50 focus:bg-white/[0.06]
-                  focus:ring-2 focus:ring-emerald-500/20
-                  hover:border-white/[0.15] hover:bg-white/[0.05]
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                "
+                className="input"
               />
             </div>
-            {/* Currency auto-detect notice */}
-            <div className="flex items-center gap-1.5 mt-2">
-              <Globe className="w-3 h-3 text-gray-600" />
-              <span className="text-[11px] text-gray-600">
-                Currency symbol (£, $, €, ¥, ₹, etc.) is automatically detected from the product page
-              </span>
-            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-accent"
+              style={{
+                width: '100%', justifyContent: 'center', marginTop: 4,
+                opacity: loading ? 0.65 : 1, cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {loading
+                ? <><Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Scraping page…</>
+                : <><Plus size={15} /> Start tracking</>
+              }
+            </button>
           </div>
-
-          {/* Submit button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="
-              relative w-full group/btn
-              flex items-center justify-center gap-2.5
-              py-3.5 px-6 rounded-xl
-              font-semibold text-sm text-white
-              bg-gradient-to-r from-violet-600 to-cyan-600
-              shadow-lg shadow-violet-600/25
-              outline-none
-              transition-all duration-300 ease-out
-              hover:shadow-xl hover:shadow-violet-600/30
-              hover:scale-[1.01] hover:brightness-110
-              active:scale-[0.99]
-              disabled:opacity-60 disabled:cursor-not-allowed
-              disabled:hover:scale-100 disabled:hover:shadow-lg
-              disabled:hover:brightness-100
-            "
-          >
-            {/* Button shimmer effect */}
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500" />
-
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Adding product…</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-5 h-5" />
-                <span>Track Product</span>
-              </>
-            )}
-          </button>
         </form>
       </div>
     </div>

@@ -2,264 +2,215 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, Settings, Loader2, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 
-interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+interface Props { isOpen: boolean; onClose: () => void; }
 
-const DISCORD_WEBHOOK_REGEX = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9\-_]+$/;
+const WH_REGEX = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9\-_]+$/;
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose }: Props) {
   const [webhookUrl, setWebhookUrl] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [validationError, setValidationError] = useState('');
-  const [statusMessage, setStatusMessage] = useState<{
-    type: 'success' | 'error' | 'warning';
-    text: string;
-  } | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [saving,     setSaving]     = useState(false);
+  const [testing,    setTesting]    = useState(false);
+  const [valErr,     setValErr]     = useState('');
+  const [status,     setStatus]     = useState<{ type: 'success' | 'error' | 'warn'; text: string } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-
-    const fetchSettings = async () => {
-      setLoading(true);
-      setStatusMessage(null);
-      setValidationError('');
-      try {
-        const response = await axios.get<{ discord_webhook_url: string }>('/api/settings');
-        setWebhookUrl(response.data.discord_webhook_url || '');
-      } catch (err) {
-        console.error('Failed to fetch settings:', err);
-        setStatusMessage({
-          type: 'error',
-          text: 'Failed to load settings from server.',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSettings();
+    setLoading(true); setStatus(null); setValErr('');
+    axios.get<{ discord_webhook_url: string }>('/api/settings')
+      .then(r => setWebhookUrl(r.data.discord_webhook_url || ''))
+      .catch(() => setStatus({ type: 'error', text: 'Failed to load settings.' }))
+      .finally(() => setLoading(false));
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleValidate = (url: string): boolean => {
-    if (!url.trim()) {
-      setValidationError('');
-      return true;
-    }
-    if (!DISCORD_WEBHOOK_REGEX.test(url.trim())) {
-      setValidationError(
-        'Invalid Discord Webhook URL format. Expected: https://discord.com/api/webhooks/...'
-      );
-      return false;
-    }
-    setValidationError('');
-    return true;
+  const validate = (u: string): boolean => {
+    if (!u.trim()) { setValErr(''); return true; }
+    if (!WH_REGEX.test(u.trim())) { setValErr('Invalid Discord webhook URL format.'); return false; }
+    setValErr(''); return true;
   };
 
   const handleSave = async () => {
-    const trimmed = webhookUrl.trim();
-    if (!handleValidate(trimmed)) return;
-
-    setSaving(true);
-    setStatusMessage(null);
+    if (!validate(webhookUrl)) return;
+    setSaving(true); setStatus(null);
     try {
-      const response = await axios.post<{ discord_webhook_url: string }>('/api/settings', {
-        discord_webhook_url: trimmed,
-      });
-      setWebhookUrl(response.data.discord_webhook_url || '');
-      setStatusMessage({
-        type: 'success',
-        text: 'Settings saved successfully!',
-      });
-    } catch (err: any) {
-      console.error('Failed to save settings:', err);
-      const msg = err.response?.data?.detail || 'Failed to save settings.';
-      setStatusMessage({
-        type: 'error',
-        text: msg,
-      });
-    } finally {
-      setSaving(false);
-    }
+      const r = await axios.post<{ discord_webhook_url: string }>('/api/settings', { discord_webhook_url: webhookUrl.trim() });
+      setWebhookUrl(r.data.discord_webhook_url || '');
+      setStatus({ type: 'success', text: 'Settings saved.' });
+    } catch (e: any) {
+      setStatus({ type: 'error', text: e.response?.data?.detail || 'Failed to save settings.' });
+    } finally { setSaving(false); }
   };
 
-  const handleTestWebhook = async () => {
-    setTesting(true);
-    setStatusMessage(null);
+  const handleTest = async () => {
+    setTesting(true); setStatus(null);
     try {
-      const response = await axios.post<{ status: string; message: string }>('/api/test-webhook');
-      if (response.data.status === 'ok') {
-        setStatusMessage({
-          type: 'success',
-          text: 'Test alert sent! Check your Discord channel.',
-        });
-      } else {
-        setStatusMessage({
-          type: 'warning',
-          text: response.data.message || 'Test alert delivery warning.',
-        });
-      }
-    } catch (err: any) {
-      console.error('Failed to test webhook:', err);
-      const msg = err.response?.data?.detail || 'Failed to trigger test webhook.';
-      setStatusMessage({
-        type: 'error',
-        text: msg,
-      });
-    } finally {
-      setTesting(false);
-    }
+      const r = await axios.post<{ status: string; message: string }>('/api/test-webhook');
+      if (r.data.status === 'ok') setStatus({ type: 'success', text: 'Test alert sent! Check your Discord channel.' });
+      else setStatus({ type: 'warn', text: r.data.message });
+    } catch (e: any) {
+      setStatus({ type: 'error', text: e.response?.data?.detail || 'Failed to trigger test.' });
+    } finally { setTesting(false); }
+  };
+
+  const statusColors: Record<string, string> = {
+    success: 'var(--accent)',
+    error:   '#f87171',
+    warn:    '#f59e0b',
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-      {/* Modal Card */}
-      <div className="relative w-full max-w-lg bg-gray-900 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden">
-        {/* Glow Effects */}
-        <div className="absolute -top-24 -left-24 w-48 h-48 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+    /* Backdrop */
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, animation: 'fadeIn 0.2s ease both',
+      }}
+    >
+      {/* Modal */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 480,
+          background: '#0e0e0e',
+          backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
+          border: '1px solid var(--border)',
+          borderRadius: 18,
+          boxShadow: '0 24px 80px rgba(0,0,0,0.7)',
+          overflow: 'hidden',
+          animation: 'fadeUp 0.25s ease both',
+          position: 'relative',
+        }}
+      >
+        {/* Top highlight */}
+        <div aria-hidden="true" style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)',
+          pointerEvents: 'none',
+        }} />
 
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06] bg-white/[0.01]">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 shadow-md shadow-violet-500/10">
-              <Settings className="w-4 h-4 text-white" />
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 9,
+              background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Settings size={15} color="var(--accent)" />
             </div>
-            <h3 className="font-semibold text-lg text-white">System Settings</h3>
+            <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+              System Settings
+            </span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.06] transition-all"
+            className="btn-icon"
+            style={{ color: 'var(--text-muted)' }}
             aria-label="Close settings"
           >
-            <X className="w-4.5 h-4.5" />
+            <X size={15} />
           </button>
         </div>
 
-        {/* Modal Content */}
-        <div className="p-6 space-y-6">
+        {/* Body */}
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-              <p className="text-sm text-gray-400">Loading system configuration...</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '32px 0' }}>
+              <Loader2 size={28} color="var(--accent)" style={{ animation: 'spin 0.8s linear infinite' }} />
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Loading configuration…</p>
             </div>
           ) : (
             <>
-              {/* Discord Webhook field */}
-              <div className="space-y-2">
-                <label htmlFor="settings-webhook" className="block text-sm font-medium text-gray-300">
+              {/* Webhook input */}
+              <div>
+                <label
+                  htmlFor="modal-webhook"
+                  style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                >
                   Discord Webhook URL
                 </label>
-                <div className="relative">
-                  <input
-                    id="settings-webhook"
-                    type="text"
-                    value={webhookUrl}
-                    onChange={(e) => {
-                      setWebhookUrl(e.target.value);
-                      handleValidate(e.target.value);
-                    }}
-                    placeholder="https://discord.com/api/webhooks/..."
-                    disabled={saving || testing}
-                    className={`
-                      w-full px-4 py-2.5 rounded-xl bg-white/[0.02] border text-sm text-white placeholder-gray-500
-                      focus:outline-none focus:ring-2 transition-all duration-200
-                      ${
-                        validationError
-                          ? 'border-red-500/50 focus:ring-red-500/35'
-                          : 'border-white/[0.08] focus:border-violet-500/50 focus:ring-violet-500/20'
-                      }
-                    `}
-                  />
-                </div>
-                {validationError && (
-                  <p className="text-xs text-red-400 flex items-start gap-1">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>{validationError}</span>
+                <input
+                  id="modal-webhook"
+                  type="text"
+                  value={webhookUrl}
+                  onChange={e => { setWebhookUrl(e.target.value); validate(e.target.value); }}
+                  placeholder="https://discord.com/api/webhooks/..."
+                  disabled={saving || testing}
+                  className="input"
+                  style={{ borderColor: valErr ? 'rgba(248,113,113,0.5)' : undefined }}
+                />
+                {valErr && (
+                  <p style={{ marginTop: 6, fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <AlertCircle size={12} /> {valErr}
                   </p>
                 )}
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Price drop notifications will be pushed to the Discord channel associated with this webhook. Leave blank to disable alerts.
+                <p style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                  Alerts are sent here when a product drops below your target. Leave empty to disable.
                 </p>
               </div>
 
-              {/* Status Indicator */}
-              {statusMessage && (
-                <div
-                  className={`
-                    flex items-start gap-3 p-3.5 rounded-xl border text-sm
-                    ${
-                      statusMessage.type === 'success'
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                        : statusMessage.type === 'warning'
-                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                        : 'bg-red-500/10 border-red-500/20 text-red-300'
-                    }
-                  `}
-                >
-                  {statusMessage.type === 'success' ? (
-                    <CheckCircle2 className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-400" />
-                  ) : (
-                    <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-400" />
-                  )}
-                  <span className="leading-tight">{statusMessage.text}</span>
+              {/* Status banner */}
+              {status && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '12px 14px', borderRadius: 10,
+                  background: `${statusColors[status.type]}10`,
+                  border: `1px solid ${statusColors[status.type]}30`,
+                }}>
+                  {status.type === 'success'
+                    ? <CheckCircle2 size={15} color="var(--accent)" style={{ flexShrink: 0, marginTop: 1 }} />
+                    : <AlertCircle  size={15} color={statusColors[status.type]} style={{ flexShrink: 0, marginTop: 1 }} />
+                  }
+                  <span style={{ fontSize: '0.8125rem', color: statusColors[status.type], lineHeight: 1.5 }}>
+                    {status.text}
+                  </span>
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button
-                  type="button"
-                  onClick={handleTestWebhook}
-                  disabled={saving || testing || !!validationError || !webhookUrl.trim()}
-                  className={`
-                    flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-white/[0.08]
-                    text-sm font-semibold text-gray-200 hover:text-white hover:bg-white/[0.04] active:bg-white/[0.08]
-                    transition-all duration-200 select-none
-                    disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent
-                    sm:flex-1
-                  `}
+                  onClick={handleTest}
+                  disabled={saving || testing || !!valErr || !webhookUrl.trim()}
+                  className="btn-ghost"
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    opacity: (saving || testing || !!valErr || !webhookUrl.trim()) ? 0.45 : 1,
+                    cursor: (saving || testing || !!valErr || !webhookUrl.trim()) ? 'not-allowed' : 'pointer',
+                  }}
                 >
-                  {testing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Sending...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      <span>Send Test Alert</span>
-                    </>
-                  )}
+                  {testing
+                    ? <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Sending…</>
+                    : <><Send size={14} /> Send Test Alert</>
+                  }
                 </button>
 
                 <button
-                  type="button"
                   onClick={handleSave}
-                  disabled={saving || testing || !!validationError}
-                  className={`
-                    flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl
-                    bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600
-                    active:from-violet-700 active:to-cyan-700
-                    text-sm font-semibold text-white shadow-lg shadow-violet-500/10 hover:shadow-violet-500/15
-                    transition-all duration-200 select-none
-                    disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-violet-500 disabled:hover:to-cyan-500
-                    sm:px-8
-                  `}
+                  disabled={saving || testing || !!valErr}
+                  className="btn-accent"
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    opacity: (saving || testing || !!valErr) ? 0.55 : 1,
+                    cursor: (saving || testing || !!valErr) ? 'not-allowed' : 'pointer',
+                  }}
                 >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <span>Save Changes</span>
-                  )}
+                  {saving
+                    ? <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Saving…</>
+                    : 'Save Changes'
+                  }
                 </button>
               </div>
             </>

@@ -6,12 +6,12 @@ import {
   Zap,
   Clock,
   Settings,
-  Compass,
+  LayoutGrid,
+  TrendingDown,
   Bell,
   BarChart3,
   ArrowRight,
   Shield,
-  TrendingDown,
 } from 'lucide-react';
 import AddProductForm from './components/AddProductForm';
 import ProductCard from './components/ProductCard';
@@ -19,445 +19,430 @@ import type { Product } from './components/ProductCard';
 import PriceChart from './components/PriceChart';
 import SettingsModal from './components/SettingsModal';
 
-function App() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(
-    null
-  );
-  const [demoMode, setDemoMode] = useState(false);
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+type Tab = 'overview' | 'tracked';
+
+export default function App() {
+  const [products, setProducts]       = useState<Product[]>([]);
+  const [loading,  setLoading]        = useState(true);
+  const [selectedId, setSelectedId]   = useState<number | null>(null);
+  const [demoMode, setDemoMode]       = useState(false);
   const [togglingDemo, setTogglingDemo] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'tracked'>('overview');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tab, setTab]                 = useState<Tab>('overview');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const formRef     = useRef<HTMLDivElement>(null);
 
-  const trackingFormRef = useRef<HTMLDivElement>(null);
-
+  /* ── Data fetching ────────────────────────────────────────────────── */
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await axios.get<Product[]>('/api/products');
-      setProducts(res.data);
-    } catch (err) {
-      console.error('Failed to fetch products:', err);
+      const { data } = await axios.get<Product[]>('/api/products');
+      setProducts(data);
+    } catch (e) {
+      console.error('Failed to fetch products:', e);
     } finally {
-      setLoadingProducts(false);
+      setLoading(false);
     }
   }, []);
 
-  // Compute stats
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  /* polling */
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    const hasPending = products.some(p => p.status === 'Pending');
+    const ms = hasPending ? 2000 : demoMode ? 5000 : 30000;
+    intervalRef.current = setInterval(fetchProducts, ms);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [demoMode, products, fetchProducts]);
+
+  /* ── Derived stats ────────────────────────────────────────────────── */
   const stats = useMemo(() => {
-    const total = products.length;
-    const active = products.filter((p) => p.status === 'Active').length;
-    const pending = products.filter((p) => p.status === 'Pending').length;
-    const triggered = products.filter((p) => p.status === 'Triggered').length;
-
-    // Calculate average savings/discount for tracked items
-    let totalDiscount = 0;
-    let itemsWithDiscount = 0;
-    products.forEach((p) => {
-      if (p.target_price > 0 && p.current_price > 0) {
-        const diff = p.target_price - p.current_price;
-        if (diff > 0) {
-          totalDiscount += (diff / p.target_price) * 100;
-          itemsWithDiscount++;
-        }
-      }
-    });
-    const avgDiscount = itemsWithDiscount > 0 ? (totalDiscount / itemsWithDiscount).toFixed(1) : '0.0';
-
-    return { total, active, pending, triggered, avgDiscount };
+    const total     = products.length;
+    const active    = products.filter(p => p.status === 'Active').length;
+    const pending   = products.filter(p => p.status === 'Pending').length;
+    const triggered = products.filter(p => p.status === 'Triggered').length;
+    return { total, active, pending, triggered };
   }, [products]);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  // Auto-refresh polling
-  useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    const hasPending = stats.pending > 0;
-    const pollMs = hasPending ? 2000 : demoMode ? 5000 : 30000;
-    intervalRef.current = setInterval(() => {
-      fetchProducts();
-    }, pollMs);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [demoMode, stats.pending, fetchProducts]);
-
-  const toggleDemoMode = async () => {
+  /* ── Handlers ─────────────────────────────────────────────────────── */
+  const toggleDemo = async () => {
     const next = !demoMode;
     setTogglingDemo(true);
     try {
       await axios.post(`/api/demo/toggle?demo=${next}`);
       setDemoMode(next);
-    } catch (err) {
-      console.error('Failed to toggle demo mode:', err);
     } finally {
       setTogglingDemo(false);
     }
   };
 
-  const handleSelectProduct = (id: number) => {
-    setSelectedProductId((prev) => (prev === id ? null : id));
+  const handleSelect = (id: number) =>
+    setSelectedId(prev => (prev === id ? null : id));
+
+  const handleDelete = (id: number) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+    if (selectedId === id) setSelectedId(null);
   };
 
-  const handleDeleteProduct = (id: number) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-    if (selectedProductId === id) setSelectedProductId(null);
-  };
+  const scrollToForm = () =>
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const handleScrollToForm = () => {
-    trackingFormRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const selectedProduct = products.find(p => p.id === selectedId);
 
-  const selectedProduct = products.find((p) => p.id === selectedProductId);
-
+  /* ═══════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-violet-500/30 selection:text-violet-200 relative overflow-hidden">
-      {/* Ambient background gradient orbs (Luxury Premium Purple & Indigo Theme) */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div
-          className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-violet-900/[0.15] rounded-full blur-[140px]"
-          style={{ animation: 'floatOrb 25s ease-in-out infinite' }}
-        />
-        <div
-          className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] bg-indigo-900/[0.15] rounded-full blur-[120px]"
-          style={{ animation: 'floatOrb 30s ease-in-out infinite reverse' }}
-        />
-        <div
-          className="absolute bottom-[-10%] left-[20%] w-[650px] h-[650px] bg-fuchsia-950/[0.08] rounded-full blur-[160px]"
-          style={{ animation: 'floatOrb 28s ease-in-out infinite 4s' }}
-        />
-      </div>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', position: 'relative' }}>
 
-      {/* Content wrapper */}
-      <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="border-b border-white/[0.06] bg-black/[0.3] backdrop-blur-2xl sticky top-0 z-30 transition-all duration-300">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-            {/* Left: branding */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-500 shadow-md shadow-violet-500/20">
-                <Activity className="w-4.5 h-4.5 text-white" />
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-base font-bold bg-gradient-to-r from-white via-white to-gray-400 bg-clip-text text-transparent font-display tracking-tight">
-                  Price Monitor
-                </h1>
-                <p className="text-[10px] text-gray-500 font-medium">
-                  Real-time price tracking dashboard
-                </p>
-              </div>
+      {/* ── Single background glow handled purely in CSS (body::before) ── */}
+      {/* Additional very-subtle mesh texture */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+          backgroundImage:
+            `radial-gradient(circle at 50% 0%, rgba(0,229,160,0.06) 0%, transparent 55%)`,
+        }}
+      />
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* NAV                                                            */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      <header
+        style={{
+          position: 'sticky', top: 0, zIndex: 50,
+          background: 'rgba(5,5,5,0.75)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <div style={{
+          maxWidth: 1120, margin: '0 auto',
+          padding: '0 24px',
+          height: 60,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+        }}>
+          {/* Branding */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 9,
+              background: 'var(--accent)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 16px var(--accent-glow)',
+            }}>
+              <Activity size={16} color="#000" strokeWidth={2.5} />
+            </div>
+            <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+              PriceMonitor
+            </span>
+          </div>
+
+          {/* Tabs */}
+          <nav style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.025)', padding: 4, borderRadius: 10, border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setTab('overview')}
+              className={`nav-tab${tab === 'overview' ? ' active' : ''}`}
+            >
+              <LayoutGrid size={14} />
+              Overview
+            </button>
+            <button
+              onClick={() => setTab('tracked')}
+              className={`nav-tab${tab === 'tracked' ? ' active' : ''}`}
+            >
+              <Package size={14} />
+              Tracked
+              {stats.total > 0 && (
+                <span style={{
+                  background: tab === 'tracked' ? 'var(--accent-dim)' : 'rgba(255,255,255,0.06)',
+                  color: tab === 'tracked' ? 'var(--accent)' : 'var(--text-muted)',
+                  borderRadius: 999, padding: '1px 7px', fontSize: '0.6875rem', fontWeight: 700,
+                }}>
+                  {stats.total}
+                </span>
+              )}
+            </button>
+          </nav>
+
+          {/* Right controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            {/* Demo toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }} className="hidden-mobile">
+                {demoMode ? 'Demo on' : '1h checks'}
+              </span>
+              <button
+                onClick={toggleDemo}
+                disabled={togglingDemo}
+                className={`toggle${demoMode ? ' on' : ''}`}
+                title={demoMode ? 'Demo mode: 10s checks' : 'Standard mode: 1h checks'}
+                style={{ opacity: togglingDemo ? 0.5 : 1, cursor: togglingDemo ? 'not-allowed' : 'pointer' }}
+              >
+                <span className="toggle-knob" />
+              </button>
             </div>
 
-            {/* Center: Navigation Tabs */}
-            <div className="flex items-center gap-1 bg-white/[0.02] p-1 rounded-xl border border-white/[0.06] backdrop-blur-md">
-              <button
-                onClick={() => setActiveTab('overview')}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  activeTab === 'overview'
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-                    : 'text-gray-400 hover:text-white hover:bg-white/[0.02]'
-                }`}
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span>Overview</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('tracked')}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  activeTab === 'tracked'
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-                    : 'text-gray-400 hover:text-white hover:bg-white/[0.02]'
-                }`}
-              >
-                <Package className="w-3.5 h-3.5" />
-                <span>Tracked ({products.length})</span>
-              </button>
-            </div>
+            <div className="divider" />
 
-            {/* Right: demo toggle + settings */}
-            <div className="flex items-center gap-3">
-              {/* Demo Mode Toggle */}
-              <div className="flex items-center gap-2.5">
-                <div className="hidden md:flex items-center gap-1.5">
-                  {demoMode ? (
-                    <>
-                      <Zap className="w-3 h-3 text-emerald-400" />
-                      <span className="text-[10px] font-semibold text-emerald-400 tracking-wide">
-                        Demo (10s checks)
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="w-3 h-3 text-gray-500" />
-                      <span className="text-[10px] font-semibold text-gray-500 tracking-wide">
-                        Standard (1h checks)
-                      </span>
-                    </>
-                  )}
-                </div>
+            {/* Settings */}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="btn-icon"
+              title="Settings"
+            >
+              <Settings size={15} />
+            </button>
+          </div>
+        </div>
+      </header>
 
-                <button
-                  onClick={toggleDemoMode}
-                  disabled={togglingDemo}
-                  className={`
-                    relative w-10 h-5.5 rounded-full
-                    transition-all duration-300 ease-out
-                    focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-                    ${
-                      demoMode
-                        ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 shadow-md shadow-emerald-500/20'
-                        : 'bg-white/[0.08] border border-white/[0.06]'
-                    }
-                  `}
-                  aria-label="Toggle Demo Mode"
-                >
-                  <span
-                    className={`
-                      absolute top-0.5 left-0.5
-                      w-4.5 h-4.5 rounded-full
-                      bg-white shadow-sm
-                      transition-transform duration-300 ease-out
-                      ${demoMode ? 'translate-x-4.5' : 'translate-x-0'}
-                    `}
-                  />
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* CONTENT                                                        */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      <main style={{ position: 'relative', zIndex: 1 }}>
+
+        {/* ── OVERVIEW TAB ──────────────────────────────────────────── */}
+        {tab === 'overview' && (
+          <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+
+            {/* Hero */}
+            <section style={{
+              maxWidth: 760, margin: '0 auto',
+              padding: '88px 24px 72px',
+              textAlign: 'center',
+            }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '5px 14px', borderRadius: 999,
+                background: 'rgba(0,229,160,0.08)',
+                border: '1px solid rgba(0,229,160,0.22)',
+                marginBottom: 32,
+              }}>
+                <Zap size={12} color="var(--accent)" />
+                <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Automated price intelligence
+                </span>
+              </div>
+
+              <h1 style={{
+                fontSize: 'clamp(2.25rem, 5vw, 3.75rem)',
+                fontWeight: 800,
+                lineHeight: 1.08,
+                letterSpacing: '-0.03em',
+                color: '#ffffff',
+                marginBottom: 20,
+              }}>
+                Know the moment<br />prices drop.
+              </h1>
+
+              <p style={{
+                fontSize: '1.0625rem',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.7,
+                maxWidth: 520,
+                margin: '0 auto 40px',
+              }}>
+                Scrape any product URL, set your target price, and get instant Discord notifications the moment the price falls. Fully automated.
+              </p>
+
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button className="btn-accent" onClick={scrollToForm}>
+                  Start tracking <ArrowRight size={15} />
+                </button>
+                <button className="btn-ghost" onClick={() => setTab('tracked')}>
+                  View products
                 </button>
               </div>
 
-              {/* Divider */}
-              <div className="w-px h-5 bg-white/[0.08]" />
+              {/* Ambient glow line */}
+              <div style={{
+                marginTop: 72,
+                height: 1,
+                background: 'linear-gradient(90deg, transparent, rgba(0,229,160,0.3), transparent)',
+              }} />
+            </section>
 
-              {/* Settings Button */}
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="p-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] active:bg-white/[0.1] text-gray-400 hover:text-white transition-all cursor-pointer"
-                title="System Settings"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* Tab contents */}
-        <div className="flex-1">
-          {activeTab === 'overview' ? (
-            /* START PAGE (OVERVIEW) */
-            <div className="animate-[fadeIn_0.4s_ease-out_both]">
-              {/* Hero Section */}
-              <section className="relative pt-20 pb-16 px-6 text-center max-w-4xl mx-auto overflow-hidden">
-                {/* Nebula Glow behind hero */}
-                <div className="absolute top-[40%] left-[50%] -translate-x-[50%] -translate-y-[50%] w-[350px] h-[350px] bg-violet-600/[0.07] rounded-full blur-[80px] pointer-events-none" />
-
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-[10px] font-bold text-violet-300 tracking-wider uppercase mb-6 backdrop-blur-md shadow-inner">
-                  <Zap className="w-3 h-3 text-violet-400 animate-pulse" />
-                  <span>Version 2.0 Released</span>
-                </div>
-
-                <h2 className="text-4xl sm:text-6xl font-extrabold font-display tracking-tight text-white leading-[1.1] mb-6">
-                  Intelligent Price Automation for{' '}
-                  <span className="bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400 bg-clip-text text-transparent">
-                    Modern Shoppers
-                  </span>
-                </h2>
-
-                <p className="text-gray-400 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed mb-10 font-normal">
-                  Scrape product details instantly, track historical price fluctuations with interactive charts, and receive immediate alerts on Discord when prices drop.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <button
-                    onClick={() => setActiveTab('tracked')}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-sm font-bold shadow-lg shadow-violet-500/15 hover:shadow-violet-500/25 active:scale-98 transition-all cursor-pointer"
-                  >
-                    <span>View Tracked Products</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleScrollToForm}
-                    className="w-full sm:w-auto px-8 py-3 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] active:bg-white/[0.08] text-sm font-semibold hover:border-white/[0.15] transition-all cursor-pointer"
-                  >
-                    Track a New Product
-                  </button>
-                </div>
-
-                {/* Subtitle / Trust Indicator */}
-                <p className="text-[11px] text-gray-500 mt-12 font-medium tracking-wide">
-                  Optimized for books.toscrape.com • Custom alerts via Discord Webhooks
-                </p>
-              </section>
-
-              {/* Stats & Overview Showcase (Ultra-Glassy Cards) */}
-              <section className="max-w-6xl mx-auto px-6 py-12 border-t border-white/[0.04] bg-white/[0.01]/10 backdrop-blur-3xl">
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
-                  {/* Total Card */}
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-5 shadow-xl hover:border-white/[0.12] transition-all duration-300">
-                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Total Products</p>
-                    <div className="flex items-baseline gap-2 mt-2">
-                      <span className="text-3xl font-bold font-display">{stats.total}</span>
-                      <span className="text-[10px] text-gray-400 font-medium">monitored</span>
+            {/* Stats bar */}
+            {stats.total > 0 && (
+              <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 48px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: 12,
+                }}>
+                  {[
+                    { label: 'Tracked',   value: stats.total,     color: 'var(--text-primary)' },
+                    { label: 'Active',    value: stats.active,    color: 'var(--accent)' },
+                    { label: 'Triggered', value: stats.triggered, color: '#f59e0b' },
+                    { label: 'Pending',   value: stats.pending,   color: '#60a5fa' },
+                  ].map(({ label, value, color }) => (
+                    <div
+                      key={label}
+                      className="glass glass-highlight"
+                      style={{ position: 'relative', padding: '20px 24px' }}
+                    >
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                        {label}
+                      </p>
+                      <p style={{ fontSize: '2rem', fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                        {value}
+                      </p>
                     </div>
-                  </div>
-                  {/* Active Card */}
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-5 shadow-xl hover:border-white/[0.12] transition-all duration-300">
-                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Active Trackers</p>
-                    <div className="flex items-baseline gap-2 mt-2">
-                      <span className="text-3xl font-bold font-display text-emerald-400">{stats.active}</span>
-                      <span className="text-[10px] text-gray-400 font-medium">active polling</span>
-                    </div>
-                  </div>
-                  {/* Triggered Card */}
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-5 shadow-xl hover:border-white/[0.12] transition-all duration-300">
-                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Triggered Alerts</p>
-                    <div className="flex items-baseline gap-2 mt-2">
-                      <span className="text-3xl font-bold font-display text-amber-400">{stats.triggered}</span>
-                      <span className="text-[10px] text-gray-400 font-medium">notified Discord</span>
-                    </div>
-                  </div>
-                  {/* Average Savings */}
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-5 shadow-xl hover:border-white/[0.12] transition-all duration-300">
-                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Average Discount</p>
-                    <div className="flex items-baseline gap-2 mt-2">
-                      <span className="text-3xl font-bold font-display text-violet-400 flex items-center gap-1">
-                        <TrendingDown className="w-6 h-6 text-violet-400 shrink-0" />
-                        {stats.avgDiscount}%
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-medium">below target</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Features Highlights */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-6 shadow-xl space-y-3">
-                    <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-violet-400" />
-                    </div>
-                    <h3 className="text-base font-bold text-white font-display">Playwright Scraping</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      Utilizes dynamic headless browser scraping to bypass traditional API blockers, extracting prices, names, and thumbnails instantly.
-                    </p>
-                  </div>
-
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-6 shadow-xl space-y-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                      <Bell className="w-5 h-5 text-indigo-400" />
-                    </div>
-                    <h3 className="text-base font-bold text-white font-display">Discord Notification Engine</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      Sends rich embed webhook notifications directly to your custom Discord channel when products hit or drop below your designated target price.
-                    </p>
-                  </div>
-
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-6 shadow-xl space-y-3">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                      <BarChart3 className="w-5 h-5 text-cyan-400" />
-                    </div>
-                    <h3 className="text-base font-bold text-white font-display">Historical Analytics</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      Maintains an SQLite database of historical price changes, plotting interactive graphs and computing price prediction analytics.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Form Wrapper */}
-                <div ref={trackingFormRef} className="pt-8">
-                  <AddProductForm onProductAdded={() => {
-                    fetchProducts();
-                    setActiveTab('tracked'); // Switch tab to tracked when a product is added
-                  }} />
+                  ))}
                 </div>
               </section>
-            </div>
-          ) : (
-            /* ACTIVELY TRACKED PRODUCTS */
-            <div className="max-w-6xl mx-auto px-6 py-10 space-y-10 animate-[fadeIn_0.3s_ease-out]">
-              {/* Product grid header */}
-              <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold text-white font-display">
-                    Tracked Products
-                  </h2>
-                  <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold text-gray-400">
-                    {products.length}
-                  </span>
-                  {loadingProducts && (
-                    <div className="w-4 h-4 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin ml-2" />
-                  )}
-                </div>
+            )}
 
-                <div className="flex items-center gap-6">
-                  {/* Stats Quick Summary */}
-                  <div className="hidden sm:flex items-center gap-4 text-xs text-gray-400">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span>{stats.active} Active</span>
-                    </span>
-                    {stats.pending > 0 && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                        <span>{stats.pending} Pending</span>
-                      </span>
-                    )}
-                    {stats.triggered > 0 && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-amber-400" />
-                        <span>{stats.triggered} Triggered</span>
-                      </span>
-                    )}
+            {/* Feature cards */}
+            <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 64px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                {[
+                  {
+                    icon: <Zap size={20} color="var(--accent)" />,
+                    title: 'Instant Scraping',
+                    desc: 'Playwright-powered headless browser extraction. Title, price, and cover image in under 5 seconds.',
+                  },
+                  {
+                    icon: <Bell size={20} color="var(--accent)" />,
+                    title: 'Discord Alerts',
+                    desc: 'Rich webhook embeds sent directly to your channel the moment a product hits your target price.',
+                  },
+                  {
+                    icon: <BarChart3 size={20} color="var(--accent)" />,
+                    title: 'Price History & Prediction',
+                    desc: 'Interactive charts with Monte Carlo simulation to estimate the probability of hitting your target.',
+                  },
+                ].map(({ icon, title, desc }) => (
+                  <div
+                    key={title}
+                    className="glass glass-hover glass-highlight"
+                    style={{ position: 'relative', padding: '28px 24px', transition: 'border-color 0.2s, background 0.2s' }}
+                  >
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10,
+                      background: 'var(--accent-dim)',
+                      border: '1px solid rgba(0,229,160,0.18)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 16,
+                    }}>
+                      {icon}
+                    </div>
+                    <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{title}</h3>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>{desc}</p>
                   </div>
-                </div>
+                ))}
               </div>
+            </section>
 
-              {!loadingProducts && products.length === 0 ? (
-                <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-12 text-center max-w-xl mx-auto shadow-xl">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.08] mb-4">
-                    <Package className="w-6 h-6 text-gray-500" />
-                  </div>
-                  <h3 className="font-bold text-base text-white font-display mb-1">No products tracked yet</h3>
-                  <p className="text-gray-500 text-xs max-w-xs mx-auto leading-relaxed mb-6">
-                    Paste a URL from books.toscrape.com on the home tab to start monitoring prices in real-time.
-                  </p>
-                  <button
-                    onClick={() => setActiveTab('overview')}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-xs font-semibold text-white shadow-md transition-all cursor-pointer"
-                  >
-                    Go to Overview
-                  </button>
+            {/* Track form */}
+            <section
+              ref={formRef}
+              style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 96px' }}
+            >
+              <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                  Track a product
+                </h2>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: 6 }}>
+                  Paste a URL from books.toscrape.com and set your target price.
+                </p>
+              </div>
+              <AddProductForm onProductAdded={() => { fetchProducts(); setTab('tracked'); }} />
+            </section>
+          </div>
+        )}
+
+        {/* ── TRACKED TAB ───────────────────────────────────────────── */}
+        {tab === 'tracked' && (
+          <div
+            style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 24px 80px', animation: 'fadeUp 0.35s ease both' }}
+          >
+            {/* Header row */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 28, paddingBottom: 20,
+              borderBottom: '1px solid var(--border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h2 style={{ fontSize: '1.1875rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                  Tracked Products
+                </h2>
+                {loading && (
+                  <div style={{
+                    width: 16, height: 16, border: '2px solid var(--border)',
+                    borderTopColor: 'var(--accent)', borderRadius: '50%',
+                    animation: 'spin 0.7s linear infinite',
+                  }} />
+                )}
+              </div>
+              {/* Live mini stats */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                {stats.active > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span className="stat-dot" style={{ background: 'var(--accent)' }} />
+                    {stats.active} active
+                  </span>
+                )}
+                {stats.pending > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span className="stat-dot" style={{ background: '#60a5fa', animation: 'pulse 1.5s ease infinite' }} />
+                    {stats.pending} pending
+                  </span>
+                )}
+                {stats.triggered > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span className="stat-dot" style={{ background: '#f59e0b' }} />
+                    {stats.triggered} triggered
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Empty state */}
+            {!loading && products.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: '64px 24px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+              }}>
+                <div className="glass" style={{ width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Package size={22} color="var(--text-muted)" />
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No products tracked yet</p>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Head to Overview to add your first product.</p>
+                </div>
+                <button className="btn-accent" style={{ marginTop: 8 }} onClick={() => setTab('overview')}>
+                  Go to Overview
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gap: 14,
+                }}>
                   {products.map((product, idx) => (
                     <div
                       key={product.id}
-                      className="animate-[fadeIn_0.4s_ease-out_both]"
-                      style={{ animationDelay: `${idx * 50}ms` }}
+                      style={{ animation: `fadeUp 0.35s ${idx * 50}ms ease both` }}
                     >
                       <ProductCard
                         product={product}
-                        isSelected={selectedProductId === product.id}
-                        onSelect={handleSelectProduct}
-                        onDelete={handleDeleteProduct}
+                        isSelected={selectedId === product.id}
+                        onSelect={handleSelect}
+                        onDelete={handleDelete}
                         onUpdate={fetchProducts}
                       />
                     </div>
                   ))}
                 </div>
-              )}
 
-              {/* Price chart for selected product */}
-              {selectedProduct && selectedProduct.status !== 'Pending' && (
-                <section
-                  className="animate-[chartSlideUp_0.4s_ease-out]"
-                  key={selectedProduct.id}
-                >
-                  <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-2xl rounded-2xl p-6 shadow-xl">
+                {/* Price chart */}
+                {selectedProduct && selectedProduct.status !== 'Pending' && (
+                  <div style={{ marginTop: 24, animation: 'chartSlideUp 0.4s ease both' }} key={selectedProduct.id}>
                     <PriceChart
                       productId={selectedProduct.id}
                       productTitle={selectedProduct.title}
@@ -465,35 +450,37 @@ function App() {
                       currencySymbol={selectedProduct.currency_symbol}
                     />
                   </div>
-                </section>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <footer className="border-t border-white/[0.06] py-6 text-center text-xs text-gray-500 bg-black/[0.2] backdrop-blur-md">
-          <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p>© 2026 Price Monitor Bot. All rights reserved.</p>
-            <div className="flex items-center gap-4 font-medium">
-              <span className="flex items-center gap-1">
-                <Shield className="w-3.5 h-3.5 text-gray-600" />
-                <span>SQLite DB Secure</span>
-              </span>
-              <span>•</span>
-              <span>books.toscrape.com</span>
-            </div>
+                )}
+              </>
+            )}
           </div>
-        </footer>
-      </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer style={{
+        borderTop: '1px solid var(--border)',
+        background: 'rgba(5,5,5,0.6)',
+        padding: '18px 24px',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{
+          maxWidth: 1120, margin: '0 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 8,
+        }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            © 2026 PriceMonitor
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <Shield size={12} />
+            <span>books.toscrape.com · Discord Webhooks · SQLite</span>
+          </div>
+        </div>
+      </footer>
 
       {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
-
-export default App;
