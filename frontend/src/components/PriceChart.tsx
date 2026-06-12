@@ -59,7 +59,7 @@ export default function PriceChart({
   productId,
   productTitle,
   targetPrice: originalTargetPrice,
-  currencySymbol: originalSymbol = '$',
+  currencySymbol = '$',
   currencyCode = 'USD',
   displayCurrency = 'USD',
   rates = {},
@@ -73,7 +73,7 @@ export default function PriceChart({
   const rateToUSD = 1 / (rates[currencyCode] || 1);
   const conversionRate = rates[currencyCode] ? rateToUSD * (rates[displayCurrency] || 1) : 1;
   const SYMBOLS: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', GBP: '£' };
-  const currencySymbol = SYMBOLS[displayCurrency] || displayCurrency;
+  const finalSymbol = SYMBOLS[displayCurrency] || currencySymbol;
   
   const targetPrice = originalTargetPrice * conversionRate;
 
@@ -146,7 +146,7 @@ export default function PriceChart({
       }}>
         <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{label}</p>
         <p style={{ fontSize: '1.125rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
-          {currencySymbol}{payload[0].value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
+          {finalSymbol}{payload[0].value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
         </p>
       </div>
     );
@@ -266,7 +266,7 @@ export default function PriceChart({
                   strokeDasharray="6 4"
                   strokeWidth={1.5}
                   label={{
-                    value: `Target ${currencySymbol}${targetPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}`,
+                    value: `Target ${finalSymbol}${targetPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}`,
                     position: 'insideTopRight',
                     fill: 'rgba(255,255,255,0.7)',
                     fontSize: 11,

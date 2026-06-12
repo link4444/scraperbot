@@ -182,8 +182,6 @@ export default function App() {
             >
               {displayCurrency}
             </button>
-              {lang === 'en' ? 'EN / తెలుగు / हिंदी' : lang === 'te' ? 'తెలుగు / हिंदी / EN' : 'हिंदी / EN / తెలుగు'}
-            </button>
             <button onClick={() => setSettingsOpen(true)} className="btn-icon" title="Settings">
               <Settings size={15} />
             </button>
