@@ -126,13 +126,7 @@ export default function App() {
       {/* ── Sticky Nav ─────────────────────────────────────────────── */}
       <header className="site-nav">
         <div className="nav-inner">
-          {/* Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <div className="brand-icon">
-              <Activity size={16} color="#000" strokeWidth={2.5} />
-            </div>
-            <span className="brand-name">PriceMonitor</span>
-          </div>
+
 
           {/* Tab switcher */}
           <nav className="tab-switcher">

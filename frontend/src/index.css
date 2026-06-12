@@ -263,10 +263,8 @@ body {
   top: 0;
   z-index: 50;
   height: 60px;
-  background: rgba(0, 0, 0, 0.82);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border-bottom: none;
 }
 
 .nav-inner {
