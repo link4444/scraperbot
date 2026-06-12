@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
 import {
-  Activity,
   Package,
   Settings,
   LayoutGrid,
