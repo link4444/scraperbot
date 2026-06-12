@@ -114,7 +114,7 @@ export default function AddProductForm({ onProductAdded }: AddProductFormProps) 
       <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 via-cyan-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-60" />
 
       {/* Form card */}
-      <div className="relative bg-white/[0.04] backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-8 shadow-2xl">
+      <div className="relative bg-white/[0.02] backdrop-blur-3xl border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/50">
         {/* Card header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-lg shadow-violet-500/25">

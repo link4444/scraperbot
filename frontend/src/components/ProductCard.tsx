@@ -129,14 +129,14 @@ export default function ProductCard({
       className={`
         group relative
         rounded-2xl p-5
-        bg-white/[0.04] backdrop-blur-xl
+        bg-white/[0.02] backdrop-blur-2xl
         border transition-all duration-300 ease-out
-        ${isPending ? 'cursor-default' : 'cursor-pointer hover:scale-[1.02] hover:bg-white/[0.06]'}
+        ${isPending ? 'cursor-default' : 'cursor-pointer hover:-translate-y-0.5 hover:bg-white/[0.04]'}
         ${isPending ? 'animate-[pendingPulse_2s_ease-in-out_infinite]' : ''}
         ${
           isSelected
-            ? `${status.border} ${status.glow} shadow-xl bg-white/[0.07]`
-            : 'border-white/[0.08] hover:border-white/[0.14] shadow-lg shadow-black/10'
+            ? `${status.border} ${status.glow} shadow-2xl bg-white/[0.05]`
+            : 'border-white/[0.06] hover:border-white/[0.12] shadow-xl shadow-black/30'
         }
       `}
     >
