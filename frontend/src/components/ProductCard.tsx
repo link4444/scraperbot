@@ -320,7 +320,7 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
                 background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)',
                 color: 'var(--text-muted)',
               }}>
-                {product.currency_code}
+                {displayCurrency}
               </span>
             </div>
           </div>

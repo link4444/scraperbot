@@ -8,7 +8,8 @@ import os
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+    load_dotenv(env_path)
 except ImportError:
     pass
 
@@ -85,6 +86,7 @@ async def get_ai_analysis(
 
 Based on this mathematical price history, on-chain metrics, and recent news sentiment, you must respond ONLY in a valid JSON object matching this exact schema:
 {{
+  "summary": "A concise, simple 2-3 sentence summary of what this data means for the average user.",
   "sentiment_analysis": "A concise, 3-sentence market sentiment breakdown summarizing macro trends and news impacts.",
   "targets": [
     {{"type": "Aggressive", "price": 0.00, "justification": "A 1-sentence technical or sentimental reason for this high-risk entry."}},
@@ -134,6 +136,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
         else:
             # Fallback mock for testing without keys
             result_json = json.dumps({
+                "summary": "This is a simulated summary because GEMINI_API_KEY is not set. The asset shows normal volatility.",
                 "sentiment_analysis": "This is a simulated online response because GEMINI_API_KEY is not set. The asset shows normal volatility. News sentiment remains neutral.",
                 "targets": [
                     {"type": "Aggressive", "price": current_price * 0.9, "justification": "Aggressive drop target."},
@@ -158,3 +161,46 @@ Do not include markdown code blocks like ```json or any conversational filler te
         logger.error(f"Failed to parse AI response: {e}")
         logger.error(f"Raw response: {result_json}")
         raise ValueError("AI returned invalid data format.")
+
+async def ai_chat(asset_name: str, current_price: float, question: str, provider: str = "online") -> str:
+    """Chat with the AI Analyst about the asset."""
+    system_prompt = f"""You are a strict financial AI analyst. You are currently analyzing {asset_name} which is priced at ${current_price}.
+CRITICAL RULES:
+1. You MUST ONLY answer questions strictly related to this specific asset ({asset_name}), general financial advice, or trading strategy.
+2. If the user asks about ANYTHING ELSE (e.g., coding, cooking, general knowledge, weather), you must decline to answer and say "I am a financial analyst and can only answer questions related to {asset_name} or financial markets."
+3. Keep your answers concise, professional, and no more than 3-4 sentences.
+
+User's question: {question}"""
+
+    if provider == "local":
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                payload = {
+                    "model": "llama3",
+                    "prompt": system_prompt,
+                    "stream": False
+                }
+                resp = await client.post("http://localhost:11434/api/generate", json=payload)
+                resp.raise_for_status()
+                return resp.json().get("response", "I could not generate a response.")
+        except Exception as e:
+            logger.error(f"Ollama chat failed: {e}")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
+    else:
+        import os
+        gemini_key = os.environ.get("GEMINI_API_KEY")
+        if gemini_key:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            try:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    payload = {
+                        "contents": [{"parts": [{"text": system_prompt}]}],
+                    }
+                    resp = await client.post(url, json=payload)
+                    resp.raise_for_status()
+                    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception as e:
+                logger.error(f"Gemini chat failed: {e}")
+                raise ValueError("Online AI Model failed to respond.")
+        else:
+            return "This is a simulated response because GEMINI_API_KEY is not set. Please add your key to chat with the AI."

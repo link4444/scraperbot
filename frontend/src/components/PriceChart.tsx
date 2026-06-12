@@ -11,7 +11,7 @@ import {
   Area,
   ComposedChart,
 } from 'recharts';
-import { BarChart3, Loader2, Inbox, Wand2, TrendingDown, Brain, Target, ShieldAlert, Check } from 'lucide-react';
+import { BarChart3, Loader2, Inbox, Wand2, TrendingDown, Brain, Target, ShieldAlert, Check, Send } from 'lucide-react';
 
 interface PriceChartProps {
   productId: number;
@@ -81,6 +81,10 @@ export default function PriceChart({
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [skeletonMsg, setSkeletonMsg] = useState("");
   const [settingTarget, setSettingTarget] = useState<string | null>(null);
+
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<{ role: 'user'|'ai', text: string }[]>([]);
 
   const rateToUSD = 1 / (rates[currencyCode] || 1);
   const conversionRate = rates[currencyCode] ? rateToUSD * (rates[displayCurrency] || 1) : 1;
@@ -449,9 +453,16 @@ export default function PriceChart({
 
           {aiData && (
             <div style={{ animation: 'fadeUp 0.4s ease both' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
-                {aiData.sentiment_analysis}
-              </p>
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <h5 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Summary</h5>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 12 }}>
+                  {aiData.summary}
+                </p>
+                <h5 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Market Sentiment</h5>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {aiData.sentiment_analysis}
+                </p>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                 {aiData.targets?.map((tgt: any) => (
                   <div key={tgt.type} className="glass" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -479,6 +490,62 @@ export default function PriceChart({
               </div>
               <div style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.3)', marginTop: 12, textAlign: 'center' }}>
                 Disclaimer: AI analysis is for informational purposes only. Do your own research.
+              </div>
+
+              {/* Chat Interface */}
+              <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                <h5 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>
+                  Ask about {productTitle}
+                </h5>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12, maxHeight: 250, overflowY: 'auto' }}>
+                  {chatHistory.map((msg, i) => (
+                    <div key={i} style={{ 
+                      alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                      background: msg.role === 'user' ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${msg.role === 'user' ? 'rgba(168,85,247,0.3)' : 'var(--border)'}`,
+                      padding: '8px 12px', borderRadius: 12, maxWidth: '85%',
+                      fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5
+                    }}>
+                      {msg.text}
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div style={{ alignSelf: 'flex-start', padding: '8px 12px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)' }}>
+                      <Loader2 size={14} color="#a855f7" className="spin" />
+                    </div>
+                  )}
+                </div>
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!chatInput.trim() || chatLoading) return;
+                    const q = chatInput.trim();
+                    setChatInput("");
+                    setChatHistory(prev => [...prev, { role: 'user', text: q }]);
+                    setChatLoading(true);
+                    try {
+                      const res = await axios.post(`/api/products/${productId}/ai-chat`, { question: q, provider: aiProvider });
+                      setChatHistory(prev => [...prev, { role: 'ai', text: res.data.response }]);
+                    } catch (err) {
+                      setChatHistory(prev => [...prev, { role: 'ai', text: 'Failed to get response.' }]);
+                    } finally {
+                      setChatLoading(false);
+                    }
+                  }}
+                  style={{ display: 'flex', gap: 8 }}
+                >
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    placeholder="Ask for financial advice related to this asset..."
+                    disabled={chatLoading}
+                    style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: '0.8125rem', color: '#fff', outline: 'none' }}
+                  />
+                  <button type="submit" disabled={chatLoading || !chatInput.trim()} style={{ background: '#a855f7', border: 'none', borderRadius: 8, padding: '0 12px', color: '#fff', cursor: (chatLoading || !chatInput.trim()) ? 'not-allowed' : 'pointer', opacity: (chatLoading || !chatInput.trim()) ? 0.5 : 1 }}>
+                    <Send size={14} />
+                  </button>
+                </form>
               </div>
             </div>
           )}

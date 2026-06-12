@@ -392,6 +392,31 @@ async def fetch_ai_analysis(product_id: int, provider: str = "online", db: Sessi
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class ChatRequest(BaseModel):
+    question: str
+    provider: str = "online"
+
+@app.post("/api/products/{product_id}/ai-chat")
+async def chat_with_ai(product_id: int, payload: ChatRequest, db: Session = Depends(get_session)):
+    """Chat with the AI Analyst about the asset."""
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    asset_name = product.title.split(" (")[0] if " (Crypto)" in product.title else product.title
+    
+    try:
+        from .ai_service import ai_chat
+        response = await ai_chat(
+            asset_name=asset_name,
+            current_price=product.current_price,
+            question=payload.question,
+            provider=payload.provider
+        )
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # ---------------------------------------------------------------------------
 # POST /api/products/{product_id}/seed-history — Generate fake history (Demo)

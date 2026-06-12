@@ -164,10 +164,10 @@ export default function AddProductForm({ onProductAdded, rates }: Props) {
                   textAlign: 'center'
                 }}
               >
-                <option value="USD">USD</option>
-                <option value="INR">INR</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+                <option value="USD" style={{ background: '#0e0e0e', color: '#fff' }}>USD</option>
+                <option value="INR" style={{ background: '#0e0e0e', color: '#fff' }}>INR</option>
+                <option value="EUR" style={{ background: '#0e0e0e', color: '#fff' }}>EUR</option>
+                <option value="GBP" style={{ background: '#0e0e0e', color: '#fff' }}>GBP</option>
               </select>
               <div style={{ position: 'relative', width: '100%' }}>
                 <span style={{
