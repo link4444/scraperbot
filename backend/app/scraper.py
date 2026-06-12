@@ -163,26 +163,25 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
         ``currency_symbol``, and ``currency_code``,
         or ``None`` if the scrape fails.
     """
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-            ],
-        )
-        context = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
             )
-        )
-        page = await context.new_page()
-
-        try:
+            context = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                )
+            )
+            page = await context.new_page()
             # Increased timeout to 30 s for slow / cold-start servers
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
@@ -226,12 +225,9 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
             )
             return result
 
-        except Exception:
-            logger.exception("Playwright scraper failed for URL: %s", url)
-            return None
-
-        finally:
-            await browser.close()
+    except Exception:
+        logger.exception("Playwright scraper failed for URL: %s", url)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -307,16 +303,16 @@ async def fetch_coingecko_history(coin_id: str, days: str = "365") -> list:
 
 async def scrape_coingecko_playwright(url: str, coin_id: str) -> Optional[dict]:
     """Fallback scraper for CoinGecko using Playwright to bypass API rate limits."""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-        )
-        context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        )
-        page = await context.new_page()
-        try:
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+            )
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = await context.new_page()
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(2500)  # Wait for JS/React to render price
 
@@ -354,11 +350,9 @@ async def scrape_coingecko_playwright(url: str, coin_id: str) -> Optional[dict]:
                 "currency_code": currency_code,
                 "history": []
             }
-        except Exception:
-            logger.exception("Playwright fallback failed for CoinGecko URL: %s", url)
-            return None
-        finally:
-            await browser.close()
+    except Exception:
+        logger.exception("Playwright fallback failed for CoinGecko URL: %s", url)
+        return None
 
 
 async def scrape_book(url: str) -> Optional[dict]:

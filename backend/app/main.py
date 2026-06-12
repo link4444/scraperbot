@@ -118,7 +118,12 @@ async def _background_scrape(product_id: int, url: str) -> None:
     ``Error`` with a descriptive title.
     """
     logger.info("Background scrape started for product %d: %s", product_id, url)
-    scraped = await scrape_book(url)
+    
+    scraped = None
+    try:
+        scraped = await scrape_book(url)
+    except Exception as e:
+        logger.exception("scrape_book threw an unhandled exception for product %d", product_id)
 
     from datetime import datetime, timezone
 
