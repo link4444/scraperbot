@@ -2,12 +2,17 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, Settings, Loader2, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 
-interface Props { isOpen: boolean; onClose: () => void; }
+interface Props { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSave?: (provider: 'online' | 'local') => void;
+}
 
 const WH_REGEX = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9\-_]+$/;
 
-export default function SettingsModal({ isOpen, onClose }: Props) {
+export default function SettingsModal({ isOpen, onClose, onSave }: Props) {
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [aiProvider, setAiProvider] = useState<'online' | 'local'>('online');
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [testing,    setTesting]    = useState(false);
@@ -17,8 +22,12 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true); setStatus(null); setValErr('');
-    axios.get<{ discord_webhook_url: string }>('/api/settings')
-      .then(r => setWebhookUrl(r.data.discord_webhook_url || ''))
+    axios.get<{ discord_webhook_url: string; ai_provider: string }>('/api/settings')
+      .then(r => {
+        setWebhookUrl(r.data.discord_webhook_url || '');
+        if (r.data.ai_provider === 'local') setAiProvider('local');
+        else setAiProvider('online');
+      })
       .catch(() => setStatus({ type: 'error', text: 'Failed to load settings.' }))
       .finally(() => setLoading(false));
   }, [isOpen]);
@@ -35,8 +44,14 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
     if (!validate(webhookUrl)) return;
     setSaving(true); setStatus(null);
     try {
-      const r = await axios.post<{ discord_webhook_url: string }>('/api/settings', { discord_webhook_url: webhookUrl.trim() });
+      const r = await axios.post<{ discord_webhook_url: string; ai_provider: string }>('/api/settings', { 
+        discord_webhook_url: webhookUrl.trim(),
+        ai_provider: aiProvider
+      });
       setWebhookUrl(r.data.discord_webhook_url || '');
+      const newProvider = r.data.ai_provider === 'local' ? 'local' : 'online';
+      setAiProvider(newProvider);
+      if (onSave) onSave(newProvider);
       setStatus({ type: 'success', text: 'Settings saved.' });
     } catch (e: any) {
       setStatus({ type: 'error', text: e.response?.data?.detail || 'Failed to save settings.' });
@@ -131,6 +146,54 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
             </div>
           ) : (
             <>
+              {/* AI Settings Section */}
+              <div>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+                  AI Analyst Settings
+                </h3>
+                <div style={{
+                  background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '16px', display: 'flex', flexDirection: 'column', gap: 12
+                }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 500 }}>
+                      AI Provider Model
+                    </label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => setAiProvider('online')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: 8, fontSize: '0.875rem', fontWeight: 600,
+                          background: aiProvider === 'online' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(255,255,255,0.03)',
+                          color: aiProvider === 'online' ? '#4ade80' : 'var(--text-secondary)',
+                          border: `1px solid ${aiProvider === 'online' ? '#4ade80' : 'var(--border)'}`,
+                          cursor: 'pointer', transition: 'all 0.2s'
+                        }}
+                      >
+                        Online (Gemini)
+                      </button>
+                      <button
+                        onClick={() => setAiProvider('local')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: 8, fontSize: '0.875rem', fontWeight: 600,
+                          background: aiProvider === 'local' ? 'rgba(250, 204, 21, 0.1)' : 'rgba(255,255,255,0.03)',
+                          color: aiProvider === 'local' ? '#facc15' : 'var(--text-secondary)',
+                          border: `1px solid ${aiProvider === 'local' ? '#facc15' : 'var(--border)'}`,
+                          cursor: 'pointer', transition: 'all 0.2s'
+                        }}
+                      >
+                        Local (Ollama)
+                      </button>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.4 }}>
+                      Online uses Gemini API (requires key in .env). Local uses Ollama running on your machine on port 11434 with 'llama3' model.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: 'var(--border)' }} />
+
               {/* Webhook input */}
               <div>
                 <label

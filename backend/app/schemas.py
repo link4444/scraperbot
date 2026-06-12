@@ -96,10 +96,11 @@ class SettingsResponse(BaseModel):
     """Response containing system settings."""
 
     discord_webhook_url: Optional[str] = None
-
+    ai_provider: Optional[str] = "online"
 
 class SettingsUpdate(BaseModel):
     """Request body to update system settings."""
 
     discord_webhook_url: Optional[str] = None
+    ai_provider: Optional[str] = "online"
 

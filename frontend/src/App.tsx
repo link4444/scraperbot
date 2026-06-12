@@ -82,6 +82,13 @@ export default function App() {
       .then(res => setRates(res.data.rates))
       .catch(console.error);
     
+    axios.get<{ ai_provider: 'online' | 'local' }>('/api/settings')
+      .then(res => {
+        if (res.data.ai_provider === 'local') setAiProvider('local');
+        else setAiProvider('online');
+      })
+      .catch(console.error);
+    
     axios.get('/api/demo/status').then(res => setDemoMode(res.data.demo_mode)).catch(() => {});
   }, [fetchProducts]);
 
@@ -169,14 +176,6 @@ export default function App() {
               {lang.toUpperCase()}
             </button>
             <div className="divider" />
-            <button
-              onClick={() => setAiProvider(aiProvider === 'online' ? 'local' : 'online')}
-              className="btn-ghost"
-              style={{ padding: '4px 8px', fontSize: '0.8125rem', fontWeight: 600, color: aiProvider === 'online' ? '#4ade80' : '#facc15' }}
-              title="Toggle AI Provider"
-            >
-              AI: {aiProvider.toUpperCase()}
-            </button>
             <button onClick={() => setSettingsOpen(true)} className="btn-icon" title="Settings">
               <Settings size={15} />
             </button>
@@ -448,7 +447,7 @@ export default function App() {
         </div>
       </footer>
 
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={setAiProvider} />
     </div>
   );
 }

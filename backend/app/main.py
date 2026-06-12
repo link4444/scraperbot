@@ -588,7 +588,11 @@ async def get_settings(db: Session = Depends(get_session)):
     """Retrieve dynamic application settings."""
     db_url_setting = db.get(SystemSetting, "discord_webhook_url")
     discord_webhook_url = db_url_setting.value if db_url_setting else os.getenv("DISCORD_WEBHOOK_URL")
-    return SettingsResponse(discord_webhook_url=discord_webhook_url)
+    
+    db_ai_setting = db.get(SystemSetting, "ai_provider")
+    ai_provider = db_ai_setting.value if db_ai_setting else "online"
+    
+    return SettingsResponse(discord_webhook_url=discord_webhook_url, ai_provider=ai_provider)
 
 
 # ---------------------------------------------------------------------------
@@ -619,9 +623,21 @@ async def update_settings(payload: SettingsUpdate, db: Session = Depends(get_ses
     else:
         db_url_setting = SystemSetting(key="discord_webhook_url", value=url)
     db.add(db_url_setting)
+
+    ai_provider = payload.ai_provider or "online"
+    if ai_provider not in ["online", "local"]:
+        ai_provider = "online"
+
+    db_ai_setting = db.get(SystemSetting, "ai_provider")
+    if db_ai_setting:
+        db_ai_setting.value = ai_provider
+    else:
+        db_ai_setting = SystemSetting(key="ai_provider", value=ai_provider)
+    db.add(db_ai_setting)
+
     db.commit()
-    db.refresh(db_url_setting)
-    return SettingsResponse(discord_webhook_url=db_url_setting.value)
+
+    return SettingsResponse(discord_webhook_url=url, ai_provider=ai_provider)
 
 
 # ---------------------------------------------------------------------------
