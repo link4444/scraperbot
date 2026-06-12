@@ -163,25 +163,26 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
         ``currency_symbol``, and ``currency_code``,
         or ``None`` if the scrape fails.
     """
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                ],
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+            ],
+        )
+        context = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
             )
-            context = await browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                )
-            )
-            page = await context.new_page()
+        )
+        page = await context.new_page()
+
+        try:
             # Increased timeout to 30 s for slow / cold-start servers
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
@@ -225,9 +226,12 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
             )
             return result
 
-    except Exception:
-        logger.exception("Playwright scraper failed for URL: %s", url)
-        return None
+        except Exception:
+            logger.exception("Playwright scraper failed for URL: %s", url)
+            return None
+
+        finally:
+            await browser.close()
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +261,7 @@ async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
             detail_resp.raise_for_status()
             data = detail_resp.json()
             
-            # Fetch ALL-TIME market history (Reverting back to 30 days for optimal chart resolution)
+            # Fetch 30-day market history
             history_url = (
                 f"https://api.coingecko.com/api/v3/coins/{coin_id}"
                 "/market_chart?vs_currency=usd&days=30"
@@ -277,13 +281,13 @@ async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
                 "currency_code": "USD",
                 "history": raw_history,  # list of [timestamp_ms, price]
             }
-    except Exception as e:
+    except Exception:
         logger.exception("CoinGecko API failed for coin: %s", coin_id)
         return None
 
 
 # Keep for backwards compatibility / standalone use
-async def fetch_coingecko_history(coin_id: str, days: str = "30") -> list:
+async def fetch_coingecko_history(coin_id: str, days: int = 30) -> list:
     """Fetch real historical price data from CoinGecko. Returns list of [timestamp_ms, price]."""
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={days}"
     headers = {
@@ -301,77 +305,20 @@ async def fetch_coingecko_history(coin_id: str, days: str = "30") -> list:
         return []
 
 
-async def scrape_coingecko_playwright(url: str, coin_id: str) -> Optional[dict]:
-    """Fallback scraper for CoinGecko using Playwright to bypass API rate limits."""
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-            )
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            page = await context.new_page()
-            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(2500)  # Wait for JS/React to render price
-
-            title_el = await page.query_selector("h1")
-            title = await title_el.inner_text() if title_el else f"{coin_id.capitalize()} (Crypto)"
-
-            price_text = await page.evaluate('''() => {
-                let el = document.querySelector('[data-price-target]') || document.querySelector('.no-wrap');
-                if (el) return el.innerText;
-                let spans = document.querySelectorAll('span');
-                for (let span of spans) {
-                    if (span.innerText.trim().startsWith('$') && /[0-9]/.test(span.innerText)) {
-                        return span.innerText;
-                    }
-                }
-                return "$0.00";
-            }''')
-
-            currency_symbol, currency_code = detect_currency(price_text)
-            price_match = re.search(r"[\d,]+\.?\d*", price_text)
-            price_str = price_match.group(0).replace(",", "") if price_match else "0"
-            price = float(price_str)
-
-            image_src = await page.evaluate('''() => {
-                let img = document.querySelector('h1 img') || document.querySelector('img[alt*="logo" i]');
-                return img ? img.src : "";
-            }''')
-
-            logger.info("Playwright CoinGecko fallback scraped '%s' — price: %s%.2f", title.strip(), currency_symbol, price)
-            return {
-                "title": title.strip(),
-                "price": price,
-                "image_url": image_src,
-                "currency_symbol": currency_symbol,
-                "currency_code": currency_code,
-                "history": []
-            }
-    except Exception:
-        logger.exception("Playwright fallback failed for CoinGecko URL: %s", url)
-        return None
-
-
 async def scrape_book(url: str) -> Optional[dict]:
     """
     Scrape a product page.
     - CoinGecko URLs: fetches coin data + 30-day history via the API (no browser).
-      Falls back to Playwright if the API is rate-limited.
     - Everything else: tries fast httpx scraper first, falls back to Playwright.
+    
+    For CoinGecko results, the returned dict includes a 'history' key with
+    raw [[timestamp_ms, price], ...] data for the caller to persist.
     """
     coingecko_match = re.search(r"coingecko\.com/en/coins/([a-zA-Z0-9-]+)", url)
     if coingecko_match:
         coin_id = coingecko_match.group(1)
         logger.info("Detected CoinGecko URL, fetching data+history for: %s", coin_id)
-        cg_result = await _fetch_coingecko_all(coin_id)
-        if cg_result is not None:
-            return cg_result
-        
-        logger.warning("CoinGecko API failed, falling back to Playwright for %s", url)
-        return await scrape_coingecko_playwright(url, coin_id)
+        return await _fetch_coingecko_all(coin_id)
 
     # Normal ecommerce scraping
     result = await scrape_book_httpx(url)
