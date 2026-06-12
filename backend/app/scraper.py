@@ -251,8 +251,8 @@ async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=20) as client:
             now = int(time.time())
             
-            # Fetch 30-day market history
-            history_url = f"https://coins.llama.fi/chart/coingecko:{coin_id}?end={now}&span=30&period=1d"
+            # Fetch 365-day market history
+            history_url = f"https://coins.llama.fi/chart/coingecko:{coin_id}?end={now}&span=365&period=1d"
             history_resp = await client.get(history_url)
             history_resp.raise_for_status()
             history_data = history_resp.json()

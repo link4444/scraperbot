@@ -52,6 +52,8 @@ export default function App() {
   const [tab, setTab]                   = useState<Tab>('overview');
   const [filter, setFilter]             = useState<'all' | 'active' | 'triggered' | 'error'>('all');
   const [lang, setLang]                 = useState<'en' | 'te' | 'hi'>('en');
+  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'INR' | 'EUR' | 'GBP'>('USD');
+  const [rates, setRates]               = useState<Record<string, number>>({});
 
   const t = translations[lang];
 
@@ -73,7 +75,14 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  useEffect(() => {
+    fetchProducts();
+    axios.get('https://api.exchangerate-api.com/v4/latest/USD')
+      .then(res => setRates(res.data.rates))
+      .catch(console.error);
+    
+    axios.get('/api/demo/status').then(res => setDemoMode(res.data.demo_mode)).catch(() => {});
+  }, [fetchProducts]);
 
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -159,6 +168,20 @@ export default function App() {
               style={{ padding: '4px 8px', fontSize: '0.8125rem', fontWeight: 600 }}
               title="Toggle language"
             >
+              {lang.toUpperCase()}
+            </button>
+            <div className="divider" />
+            <button
+              onClick={() => {
+                const next = { USD: 'INR', INR: 'EUR', EUR: 'GBP', GBP: 'USD' }[displayCurrency] as any;
+                setDisplayCurrency(next);
+              }}
+              className="btn-ghost"
+              style={{ padding: '4px 8px', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--accent)' }}
+              title="Toggle display currency"
+            >
+              {displayCurrency}
+            </button>
               {lang === 'en' ? 'EN / తెలుగు / हिंदी' : lang === 'te' ? 'తెలుగు / हिंदी / EN' : 'हिंदी / EN / తెలుగు'}
             </button>
             <button onClick={() => setSettingsOpen(true)} className="btn-icon" title="Settings">
@@ -375,6 +398,8 @@ export default function App() {
                       onSelect={handleSelect}
                       onDelete={handleDelete}
                       onUpdate={fetchProducts}
+                      displayCurrency={displayCurrency}
+                      rates={rates}
                     />
                     </div>
                   ))}
@@ -388,6 +413,9 @@ export default function App() {
                     productTitle={selectedProduct.title}
                     targetPrice={selectedProduct.target_price}
                     currencySymbol={selectedProduct.currency_symbol}
+                    currencyCode={selectedProduct.currency_code}
+                    displayCurrency={displayCurrency}
+                    rates={rates}
                   />
                 </div>
               )}

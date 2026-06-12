@@ -18,6 +18,9 @@ interface PriceChartProps {
   productTitle: string;
   targetPrice: number;
   currencySymbol?: string;
+  currencyCode?: string;
+  displayCurrency?: string;
+  rates?: Record<string, number>;
   onDataSeeded?: () => void;
 }
 
@@ -55,14 +58,24 @@ function formatTimestamp(iso: string): string {
 export default function PriceChart({
   productId,
   productTitle,
-  targetPrice,
-  currencySymbol = '£',
+  targetPrice: originalTargetPrice,
+  currencySymbol: originalSymbol = '$',
+  currencyCode = 'USD',
+  displayCurrency = 'USD',
+  rates = {},
   onDataSeeded,
 }: PriceChartProps) {
   const [data, setData]           = useState<ChartDataPoint[]>([]);
   const [prediction, setPrediction] = useState<PricePrediction | null>(null);
   const [loading, setLoading]     = useState(true);
   const [seeding, setSeeding]     = useState(false);
+
+  const rateToUSD = 1 / (rates[currencyCode] || 1);
+  const conversionRate = rates[currencyCode] ? rateToUSD * (rates[displayCurrency] || 1) : 1;
+  const SYMBOLS: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', GBP: '£' };
+  const currencySymbol = SYMBOLS[displayCurrency] || displayCurrency;
+  
+  const targetPrice = originalTargetPrice * conversionRate;
 
   const fetchData = async (cancelled = false) => {
     setLoading(true);
@@ -75,7 +88,7 @@ export default function PriceChart({
       const chartData: ChartDataPoint[] = histRes.data.map(p => ({
         time:    formatTimestamp(p.scraped_at),
         rawTime: new Date(p.scraped_at).getTime(),
-        price:   p.price,
+        price:   p.price * conversionRate,
       }));
       chartData.sort((a, b) => a.rawTime - b.rawTime);
       setData(chartData);
@@ -92,7 +105,7 @@ export default function PriceChart({
     let cancelled = false;
     fetchData(cancelled);
     return () => { cancelled = true; };
-  }, [productId]);
+  }, [productId, conversionRate]);
 
   const handleSeedData = async () => {
     setSeeding(true);
@@ -133,7 +146,7 @@ export default function PriceChart({
       }}>
         <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{label}</p>
         <p style={{ fontSize: '1.125rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
-          {currencySymbol}{payload[0].value.toFixed(2)}
+          {currencySymbol}{payload[0].value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
         </p>
       </div>
     );
@@ -253,7 +266,7 @@ export default function PriceChart({
                   strokeDasharray="6 4"
                   strokeWidth={1.5}
                   label={{
-                    value: `Target ${currencySymbol}${targetPrice.toFixed(2)}`,
+                    value: `Target ${currencySymbol}${targetPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}`,
                     position: 'insideTopRight',
                     fill: 'rgba(255,255,255,0.7)',
                     fontSize: 11,

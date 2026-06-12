@@ -34,6 +34,8 @@ interface Props {
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
   onUpdate: () => void;
+  displayCurrency?: string;
+  rates?: Record<string, number>;
 }
 
 /* ─── Status colour maps ──────────────────────────────────────────────────── */
@@ -46,12 +48,20 @@ const STATUS: Record<string, { dot: string; text: string; badge: string; badgeBg
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-export default function ProductCard({ product, isSelected, onSelect, onDelete, onUpdate }: Props) {
+export default function ProductCard({ product, isSelected, onSelect, onDelete, onUpdate, displayCurrency = 'USD', rates = {} }: Props) {
   const [editing,  setEditing]  = useState(false);
   const [target,   setTarget]   = useState(product.target_price.toString());
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [retrying, setRetrying] = useState(false);
+
+  const rateToUSD = 1 / (rates[product.currency_code] || 1);
+  const conversionRate = rates[product.currency_code] ? rateToUSD * (rates[displayCurrency] || 1) : 1;
+  const SYMBOLS: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', GBP: '£' };
+  const symbol = SYMBOLS[displayCurrency] || displayCurrency;
+  
+  const currentPrice = product.current_price * conversionRate;
+  const targetPrice = product.target_price * conversionRate;
 
   const isPending = product.status === 'Pending';
   const isError   = product.status === 'Error';
@@ -294,7 +304,7 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
             </p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{ fontSize: '1.625rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                {product.currency_symbol}{product.current_price.toFixed(2)}
+                {symbol}{currentPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
               </span>
               <span style={{
                 fontSize: '0.6875rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5,
@@ -368,7 +378,7 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
               onClick={e => e.stopPropagation()}
             >
               <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent)' }}>
-                {product.currency_symbol}{product.target_price.toFixed(2)}
+                {symbol}{targetPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
               </span>
               <button onClick={() => setEditing(true)} className="btn-icon" title="Edit target">
                 <Edit3 size={12} />
