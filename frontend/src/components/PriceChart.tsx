@@ -169,12 +169,12 @@ export default function PriceChart({
         <svg width={0} height={0} style={{ position: 'absolute' }}>
           <defs>
             <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%"   stopColor="#00e5a0" />
-              <stop offset="100%" stopColor="#00c4d8" />
+              <stop offset="0%"   stopColor="#ffffff" />
+              <stop offset="100%" stopColor="#ffffff" />
             </linearGradient>
             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#00e5a0" stopOpacity={0.18} />
-              <stop offset="100%" stopColor="#00e5a0" stopOpacity={0.01} />
+              <stop offset="0%"   stopColor="#ffffff" stopOpacity={0.14} />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity={0.01} />
             </linearGradient>
           </defs>
         </svg>
@@ -184,7 +184,7 @@ export default function PriceChart({
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 9,
-              background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.25)',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <BarChart3 size={16} color="var(--accent)" />
@@ -249,13 +249,13 @@ export default function PriceChart({
                 <Tooltip content={<CustomTooltip />} />
                 <ReferenceLine
                   y={targetPrice}
-                  stroke="rgba(0,229,160,0.6)"
+                  stroke="rgba(255,255,255,0.5)"
                   strokeDasharray="6 4"
                   strokeWidth={1.5}
                   label={{
                     value: `Target ${currencySymbol}${targetPrice.toFixed(2)}`,
                     position: 'insideTopRight',
-                    fill: 'rgba(0,229,160,0.8)',
+                    fill: 'rgba(255,255,255,0.7)',
                     fontSize: 11,
                     fontWeight: 600,
                   }}
@@ -272,8 +272,8 @@ export default function PriceChart({
                   dataKey="price"
                   stroke="url(#lineGrad)"
                   strokeWidth={2.5}
-                  dot={{ r: 3, fill: '#00e5a0', stroke: '#050505', strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: '#00e5a0', stroke: '#fff', strokeWidth: 2 }}
+                  dot={{ r: 3, fill: '#ffffff', stroke: '#111111', strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: '#ffffff', stroke: 'rgba(255,255,255,0.4)', strokeWidth: 2 }}
                   animationDuration={1000}
                 />
               </ComposedChart>
@@ -290,7 +290,7 @@ export default function PriceChart({
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
-                background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.2)',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <TrendingDown size={14} color="var(--accent)" />

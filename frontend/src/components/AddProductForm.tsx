@@ -52,8 +52,8 @@ export default function AddProductForm({ onProductAdded }: Props) {
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 10,
               padding: '13px 16px', borderRadius: 12,
-              background: t.type === 'error' ? 'rgba(248,113,113,0.1)' : 'rgba(0,229,160,0.1)',
-              border: `1px solid ${t.type === 'error' ? 'rgba(248,113,113,0.25)' : 'rgba(0,229,160,0.25)'}`,
+              background: t.type === 'error' ? 'rgba(248,113,113,0.1)' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${t.type === 'error' ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.15)'}`,
               backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
               animation: 'slideIn 0.3s ease both',
               boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
@@ -98,7 +98,7 @@ export default function AddProductForm({ onProductAdded }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
           <div style={{
             width: 38, height: 38, borderRadius: 10,
-            background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.25)',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <Plus size={18} color="var(--accent)" />

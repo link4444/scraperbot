@@ -37,7 +37,7 @@ interface Props {
 
 /* ─── Status colour maps ──────────────────────────────────────────────────── */
 const STATUS: Record<string, { dot: string; text: string; badge: string; badgeBg: string; badgeBorder: string }> = {
-  Active:    { dot: 'var(--accent)',  text: 'var(--accent)',   badge: '#fff',  badgeBg: 'rgba(0,229,160,0.08)',  badgeBorder: 'rgba(0,229,160,0.25)' },
+  Active:    { dot: 'var(--accent)',  text: 'var(--accent)',   badge: '#fff',  badgeBg: 'rgba(255,255,255,0.06)',  badgeBorder: 'rgba(255,255,255,0.2)' },
   Pending:   { dot: '#60a5fa', text: '#60a5fa', badge: '#fff',  badgeBg: 'rgba(96,165,250,0.08)',  badgeBorder: 'rgba(96,165,250,0.25)' },
   Triggered: { dot: '#f59e0b', text: '#f59e0b', badge: '#fff',  badgeBg: 'rgba(245,158,11,0.08)',  badgeBorder: 'rgba(245,158,11,0.25)' },
   Error:     { dot: '#f87171', text: '#f87171', badge: '#fff',  badgeBg: 'rgba(248,113,113,0.08)', badgeBorder: 'rgba(248,113,113,0.25)' },
@@ -283,8 +283,8 @@ export default function ProductCard({ product, isSelected, onSelect, onDelete, o
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '6px 10px', borderRadius: 8,
-            background: below ? 'rgba(0,229,160,0.08)' : 'rgba(248,113,113,0.08)',
-            border: `1px solid ${below ? 'rgba(0,229,160,0.2)' : 'rgba(248,113,113,0.2)'}`,
+            background: below ? 'rgba(255,255,255,0.06)' : 'rgba(248,113,113,0.08)',
+            border: `1px solid ${below ? 'rgba(255,255,255,0.18)' : 'rgba(248,113,113,0.2)'}`,
           }}>
             {below
               ? <TrendingDown size={13} color="var(--accent)" />

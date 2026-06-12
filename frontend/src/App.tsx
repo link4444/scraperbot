@@ -235,7 +235,7 @@ export default function App() {
                 <div key={title} className="glass glass-hover glass-highlight" style={{ position: 'relative', padding: '28px 24px', transition: 'border-color 0.2s, background 0.2s' }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: 10,
-                    background: 'var(--accent-dim)', border: '1px solid rgba(0,229,160,0.18)',
+                    background: 'var(--accent-dim)', border: '1px solid rgba(255,255,255,0.1)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
                   }}>
                     {icon}

@@ -103,7 +103,7 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 34, height: 34, borderRadius: 9,
-              background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.2)',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Settings size={15} color="var(--accent)" />
