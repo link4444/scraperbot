@@ -84,3 +84,20 @@ class DemoToggleResponse(BaseModel):
     status: str
     demo_mode: bool
     interval: str
+
+
+# ---------------------------------------------------------------------------
+# Settings schemas
+# ---------------------------------------------------------------------------
+
+class SettingsResponse(BaseModel):
+    """Response containing system settings."""
+
+    discord_webhook_url: Optional[str] = None
+
+
+class SettingsUpdate(BaseModel):
+    """Request body to update system settings."""
+
+    discord_webhook_url: Optional[str] = None
+

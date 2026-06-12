@@ -64,3 +64,17 @@ class PriceHistory(PriceHistoryBase, table=True):
     scraped_at: datetime = Field(default_factory=datetime.utcnow)
 
     product: Product = Relationship(back_populates="history")
+
+
+# ---------------------------------------------------------------------------
+# SystemSetting
+# ---------------------------------------------------------------------------
+
+class SystemSetting(SQLModel, table=True):
+    """Persistent SystemSetting table for key-value application settings."""
+
+    __tablename__ = "system_settings"
+
+    key: str = Field(primary_key=True)
+    value: str
+

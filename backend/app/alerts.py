@@ -1,20 +1,25 @@
-"""
-Discord webhook alert dispatcher.
-
-This module sends price-drop notifications to a Discord channel via
-webhook using httpx. It formats alert messages with product details,
-current/target prices, and percentage discount as a rich embed.
-"""
-
 import logging
 import os
 from datetime import datetime, timezone
 
 import httpx
+from sqlmodel import Session
+from app.database import engine
+from app.models import SystemSetting
 
 logger = logging.getLogger(__name__)
 
-DISCORD_WEBHOOK_URL: str | None = os.getenv("DISCORD_WEBHOOK_URL")
+
+def get_discord_webhook_url() -> str | None:
+    """Retrieve the Discord Webhook URL from the database or fall back to environment variables."""
+    try:
+        with Session(engine) as session:
+            setting = session.get(SystemSetting, "discord_webhook_url")
+            if setting and setting.value:
+                return setting.value
+    except Exception as e:
+        logger.error("Failed to fetch discord_webhook_url from database: %s", e)
+    return os.getenv("DISCORD_WEBHOOK_URL")
 
 
 async def send_discord_alert(
@@ -32,7 +37,8 @@ async def send_discord_alert(
     Returns:
         True if the message was delivered successfully, False otherwise.
     """
-    if not DISCORD_WEBHOOK_URL:
+    webhook_url = get_discord_webhook_url()
+    if not webhook_url:
         logger.warning("DISCORD_WEBHOOK_URL is not set — skipping alert.")
         return False
 
@@ -80,7 +86,7 @@ async def send_discord_alert(
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(DISCORD_WEBHOOK_URL, json=payload)
+            resp = await client.post(webhook_url, json=payload)
             resp.raise_for_status()
         logger.info("Discord alert sent for '%s'", product.title)
         return True
@@ -94,3 +100,4 @@ async def send_discord_alert(
     except Exception:
         logger.exception("Failed to send Discord alert for '%s'", product.title)
         return False
+

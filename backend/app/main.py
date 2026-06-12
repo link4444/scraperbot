@@ -8,6 +8,7 @@ configures CORS, and starts the background scheduler on app startup.
 import asyncio
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Response
@@ -18,7 +19,7 @@ from sqlmodel import Session, select
 # Import models so SQLModel registers the tables before create_all()
 from app import models  # noqa: F401
 from app.database import create_db_and_tables, engine, get_session
-from app.models import PriceHistory, Product
+from app.models import PriceHistory, Product, SystemSetting
 from app.schemas import (
     DemoToggleResponse,
     PriceHistoryResponse,
@@ -26,6 +27,8 @@ from app.schemas import (
     ProductResponse,
     ProductUpdate,
     PricePredictionResponse,
+    SettingsResponse,
+    SettingsUpdate,
 )
 from app.scraper import scrape_book
 from app.scheduler import reschedule_job, shutdown_scheduler, start_scheduler
@@ -497,6 +500,50 @@ async def toggle_demo_mode(demo: bool):
         demo_mode=demo,
         interval=interval,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/settings — Retrieve app settings
+# ---------------------------------------------------------------------------
+@app.get("/api/settings", response_model=SettingsResponse)
+async def get_settings(db: Session = Depends(get_session)):
+    """Retrieve dynamic application settings."""
+    db_url_setting = db.get(SystemSetting, "discord_webhook_url")
+    discord_webhook_url = db_url_setting.value if db_url_setting else os.getenv("DISCORD_WEBHOOK_URL")
+    return SettingsResponse(discord_webhook_url=discord_webhook_url)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/settings — Update app settings
+# ---------------------------------------------------------------------------
+DISCORD_WEBHOOK_REGEX = re.compile(
+    r"^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9\-_]+$"
+)
+
+
+@app.post("/api/settings", response_model=SettingsResponse)
+async def update_settings(payload: SettingsUpdate, db: Session = Depends(get_session)):
+    """Update dynamic application settings."""
+    url = payload.discord_webhook_url
+    if url:
+        url = url.strip()
+        if not DISCORD_WEBHOOK_REGEX.match(url):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid Discord Webhook URL. It must match the pattern: https://discord.com/api/webhooks/..."
+            )
+    else:
+        url = ""
+
+    db_url_setting = db.get(SystemSetting, "discord_webhook_url")
+    if db_url_setting:
+        db_url_setting.value = url
+    else:
+        db_url_setting = SystemSetting(key="discord_webhook_url", value=url)
+    db.add(db_url_setting)
+    db.commit()
+    db.refresh(db_url_setting)
+    return SettingsResponse(discord_webhook_url=db_url_setting.value)
 
 
 # ---------------------------------------------------------------------------

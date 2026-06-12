@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
-import { Activity, Package, Zap, Clock } from 'lucide-react';
+import { Activity, Package, Zap, Clock, Settings } from 'lucide-react';
 import AddProductForm from './components/AddProductForm';
 import ProductCard from './components/ProductCard';
 import type { Product } from './components/ProductCard';
 import PriceChart from './components/PriceChart';
+import SettingsModal from './components/SettingsModal';
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -14,6 +15,7 @@ function App() {
   );
   const [demoMode, setDemoMode] = useState(false);
   const [togglingDemo, setTogglingDemo] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchProducts = useCallback(async () => {
@@ -177,6 +179,18 @@ function App() {
               {/* Divider */}
               <div className="w-px h-6 bg-white/[0.08]" />
 
+              {/* Settings Button */}
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2 rounded-xl border border-white/[0.08] hover:bg-white/[0.04] active:bg-white/[0.08] text-gray-400 hover:text-white transition-all cursor-pointer"
+                title="System Settings"
+              >
+                <Settings className="w-4.5 h-4.5" />
+              </button>
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-white/[0.08]" />
+
               {/* Product count */}
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <Package className="w-4 h-4" />
@@ -297,6 +311,12 @@ function App() {
           )}
         </main>
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }
