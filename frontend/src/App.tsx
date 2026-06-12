@@ -51,7 +51,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tab, setTab]                   = useState<Tab>('overview');
   const [filter, setFilter]             = useState<'all' | 'active' | 'triggered' | 'error'>('all');
-  const [lang, setLang]                 = useState<'en' | 'te'>('en');
+  const [lang, setLang]                 = useState<'en' | 'te' | 'hi'>('en');
 
   const t = translations[lang];
 
@@ -154,12 +154,12 @@ export default function App() {
             </button>
             <div className="divider" />
             <button
-              onClick={() => setLang(lang === 'en' ? 'te' : 'en')}
+              onClick={() => setLang(lang === 'en' ? 'te' : lang === 'te' ? 'hi' : 'en')}
               className="btn-ghost"
               style={{ padding: '4px 8px', fontSize: '0.8125rem', fontWeight: 600 }}
               title="Toggle language"
             >
-              {lang === 'en' ? 'తెలుగు' : 'EN'}
+              {lang === 'en' ? 'EN / తెలుగు / हिंदी' : lang === 'te' ? 'తెలుగు / हिंदी / EN' : 'हिंदी / EN / తెలుగు'}
             </button>
             <button onClick={() => setSettingsOpen(true)} className="btn-icon" title="Settings">
               <Settings size={15} />
