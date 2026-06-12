@@ -53,6 +53,7 @@ export default function App() {
   const [filter, setFilter]             = useState<'all' | 'active' | 'triggered' | 'error'>('all');
   const [lang, setLang]                 = useState<'en' | 'te' | 'hi'>('en');
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'INR' | 'EUR' | 'GBP'>('USD');
+  const [aiProvider, setAiProvider]     = useState<'online' | 'local'>('online');
   const [rates, setRates]               = useState<Record<string, number>>({});
 
   const t = translations[lang];
@@ -181,6 +182,15 @@ export default function App() {
               title="Toggle display currency"
             >
               {displayCurrency}
+            </button>
+            <div className="divider" />
+            <button
+              onClick={() => setAiProvider(aiProvider === 'online' ? 'local' : 'online')}
+              className="btn-ghost"
+              style={{ padding: '4px 8px', fontSize: '0.8125rem', fontWeight: 600, color: aiProvider === 'online' ? '#4ade80' : '#facc15' }}
+              title="Toggle AI Provider"
+            >
+              AI: {aiProvider.toUpperCase()}
             </button>
             <button onClick={() => setSettingsOpen(true)} className="btn-icon" title="Settings">
               <Settings size={15} />
@@ -414,6 +424,7 @@ export default function App() {
                     currencyCode={selectedProduct.currency_code}
                     displayCurrency={displayCurrency}
                     rates={rates}
+                    aiProvider={aiProvider}
                     onUpdate={fetchProducts}
                   />
                 </div>

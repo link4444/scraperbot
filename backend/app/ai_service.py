@@ -4,6 +4,13 @@ import httpx
 from xml.etree import ElementTree
 from datetime import datetime, timedelta
 import logging
+import os
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 

@@ -20,6 +20,7 @@ interface PriceChartProps {
   currencySymbol?: string;
   currencyCode?: string;
   displayCurrency?: string;
+  aiProvider?: 'online' | 'local';
   rates?: Record<string, number>;
   onDataSeeded?: () => void;
   onUpdate?: () => void;
@@ -63,6 +64,7 @@ export default function PriceChart({
   currencySymbol = '$',
   currencyCode = 'USD',
   displayCurrency = 'USD',
+  aiProvider = 'online',
   rates = {},
   onDataSeeded,
 }: PriceChartProps) {
@@ -143,8 +145,7 @@ export default function PriceChart({
     const t2 = setTimeout(() => setSkeletonMsg("Running predictive AI models..."), 3000);
     
     try {
-      // Send provider query parameter based on App's state or default to local/online.
-      const res = await axios.get(`/api/products/${productId}/ai-analysis?provider=online`);
+      const res = await axios.get(`/api/products/${productId}/ai-analysis?provider=${aiProvider}`);
       setAiData(res.data);
     } catch (e: any) {
       setAiError(e.response?.data?.detail || e.message || "Failed to run AI analysis");
