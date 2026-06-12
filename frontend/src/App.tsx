@@ -3,14 +3,11 @@ import axios from 'axios';
 import {
   Activity,
   Package,
-  Zap,
-  Clock,
   Settings,
   LayoutGrid,
-  TrendingDown,
+  Zap,
   Bell,
   BarChart3,
-  ArrowRight,
   Shield,
 } from 'lucide-react';
 import AddProductForm from './components/AddProductForm';
@@ -19,22 +16,48 @@ import type { Product } from './components/ProductCard';
 import PriceChart from './components/PriceChart';
 import SettingsModal from './components/SettingsModal';
 
-/* ─────────────────────────────────────────────────────────────────────────── */
-
 type Tab = 'overview' | 'tracked';
 
+/* ─── Scroll-driven orb animation (vanilla, outside React) ─────────────── */
+function useOrbScroll(orbRef: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    let ticking = false;
+    const update = () => {
+      const el = orbRef.current;
+      if (!el) { ticking = false; return; }
+      const y = window.scrollY;
+      const rotation = y * 0.18 + Math.sin(y * 0.0023) * 40 + Math.cos(y * 0.0011) * 25;
+      const scale    = 1 + Math.sin(y * 0.0017) * 0.08;
+      const offsetX  = Math.sin(y * 0.0014) * 18;
+      const offsetY  = Math.cos(y * 0.0009) * 14;
+      el.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) rotate(${rotation}deg) scale(${scale})`;
+      ticking = false;
+    };
+    const onScroll = () => { if (!ticking) { requestAnimationFrame(update); ticking = true; } };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [orbRef]);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
 export default function App() {
-  const [products, setProducts]       = useState<Product[]>([]);
-  const [loading,  setLoading]        = useState(true);
-  const [selectedId, setSelectedId]   = useState<number | null>(null);
-  const [demoMode, setDemoMode]       = useState(false);
+  const [products, setProducts]         = useState<Product[]>([]);
+  const [loading,  setLoading]          = useState(true);
+  const [selectedId, setSelectedId]     = useState<number | null>(null);
+  const [demoMode, setDemoMode]         = useState(false);
   const [togglingDemo, setTogglingDemo] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tab, setTab]                 = useState<Tab>('overview');
+  const [tab, setTab]                   = useState<Tab>('overview');
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const formRef     = useRef<HTMLDivElement>(null);
+  const orbRef      = useRef<HTMLDivElement>(null);
 
-  /* ── Data fetching ────────────────────────────────────────────────── */
+  useOrbScroll(orbRef);
+
+  /* ── Data ──────────────────────────────────────────────────────────── */
   const fetchProducts = useCallback(async () => {
     try {
       const { data } = await axios.get<Product[]>('/api/products');
@@ -48,7 +71,6 @@ export default function App() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  /* polling */
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     const hasPending = products.some(p => p.status === 'Pending');
@@ -57,7 +79,7 @@ export default function App() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [demoMode, products, fetchProducts]);
 
-  /* ── Derived stats ────────────────────────────────────────────────── */
+  /* ── Stats ─────────────────────────────────────────────────────────── */
   const stats = useMemo(() => {
     const total     = products.length;
     const active    = products.filter(p => p.status === 'Active').length;
@@ -66,412 +88,278 @@ export default function App() {
     return { total, active, pending, triggered };
   }, [products]);
 
-  /* ── Handlers ─────────────────────────────────────────────────────── */
+  /* ── Handlers ──────────────────────────────────────────────────────── */
   const toggleDemo = async () => {
     const next = !demoMode;
     setTogglingDemo(true);
     try {
       await axios.post(`/api/demo/toggle?demo=${next}`);
       setDemoMode(next);
-    } finally {
-      setTogglingDemo(false);
-    }
+    } finally { setTogglingDemo(false); }
   };
 
-  const handleSelect = (id: number) =>
-    setSelectedId(prev => (prev === id ? null : id));
-
+  const handleSelect = (id: number) => setSelectedId(prev => prev === id ? null : id);
   const handleDelete = (id: number) => {
     setProducts(prev => prev.filter(p => p.id !== id));
     if (selectedId === id) setSelectedId(null);
   };
-
-  const scrollToForm = () =>
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
+  const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const selectedProduct = products.find(p => p.id === selectedId);
 
   /* ═══════════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: '#000000', position: 'relative' }}>
 
-      {/* ── Single background glow handled purely in CSS (body::before) ── */}
-      {/* Additional very-subtle mesh texture */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-          backgroundImage:
-            `radial-gradient(circle at 50% 0%, rgba(0,229,160,0.06) 0%, transparent 55%)`,
-        }}
-      />
-
-      {/* ══════════════════════════════════════════════════════════════ */}
-      {/* NAV                                                            */}
-      {/* ══════════════════════════════════════════════════════════════ */}
-      <header
-        style={{
-          position: 'sticky', top: 0, zIndex: 50,
-          background: 'rgba(5,5,5,0.75)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          borderBottom: '1px solid var(--border)',
-        }}
-      >
-        <div style={{
-          maxWidth: 1120, margin: '0 auto',
-          padding: '0 24px',
-          height: 60,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-        }}>
-          {/* Branding */}
+      {/* ── Sticky Nav ─────────────────────────────────────────────── */}
+      <header className="site-nav">
+        <div className="nav-inner">
+          {/* Brand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 9,
-              background: 'var(--accent)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 16px var(--accent-glow)',
-            }}>
+            <div className="brand-icon">
               <Activity size={16} color="#000" strokeWidth={2.5} />
             </div>
-            <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-              PriceMonitor
-            </span>
+            <span className="brand-name">PriceMonitor</span>
           </div>
 
-          {/* Tabs */}
-          <nav style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.025)', padding: 4, borderRadius: 10, border: '1px solid var(--border)' }}>
-            <button
-              onClick={() => setTab('overview')}
-              className={`nav-tab${tab === 'overview' ? ' active' : ''}`}
-            >
-              <LayoutGrid size={14} />
-              Overview
+          {/* Tab switcher */}
+          <nav className="tab-switcher">
+            <button onClick={() => setTab('overview')} className={`nav-tab${tab === 'overview' ? ' active' : ''}`}>
+              <LayoutGrid size={14} /> Overview
             </button>
-            <button
-              onClick={() => setTab('tracked')}
-              className={`nav-tab${tab === 'tracked' ? ' active' : ''}`}
-            >
-              <Package size={14} />
-              Tracked
+            <button onClick={() => setTab('tracked')} className={`nav-tab${tab === 'tracked' ? ' active' : ''}`}>
+              <Package size={14} /> Tracked
               {stats.total > 0 && (
-                <span style={{
-                  background: tab === 'tracked' ? 'var(--accent-dim)' : 'rgba(255,255,255,0.06)',
-                  color: tab === 'tracked' ? 'var(--accent)' : 'var(--text-muted)',
-                  borderRadius: 999, padding: '1px 7px', fontSize: '0.6875rem', fontWeight: 700,
-                }}>
-                  {stats.total}
-                </span>
+                <span className={`tab-badge${tab === 'tracked' ? ' active' : ''}`}>{stats.total}</span>
               )}
             </button>
           </nav>
 
           {/* Right controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-            {/* Demo toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }} className="hidden-mobile">
-                {demoMode ? 'Demo on' : '1h checks'}
-              </span>
-              <button
-                onClick={toggleDemo}
-                disabled={togglingDemo}
-                className={`toggle${demoMode ? ' on' : ''}`}
-                title={demoMode ? 'Demo mode: 10s checks' : 'Standard mode: 1h checks'}
-                style={{ opacity: togglingDemo ? 0.5 : 1, cursor: togglingDemo ? 'not-allowed' : 'pointer' }}
-              >
-                <span className="toggle-knob" />
-              </button>
-            </div>
-
-            <div className="divider" />
-
-            {/* Settings */}
+            <span className="demo-label">{demoMode ? 'Demo on' : '1h checks'}</span>
             <button
-              onClick={() => setSettingsOpen(true)}
-              className="btn-icon"
-              title="Settings"
+              onClick={toggleDemo}
+              disabled={togglingDemo}
+              className={`toggle${demoMode ? ' on' : ''}`}
+              title={demoMode ? 'Demo mode' : 'Standard mode'}
+              style={{ opacity: togglingDemo ? 0.5 : 1, cursor: togglingDemo ? 'not-allowed' : 'pointer' }}
             >
+              <span className="toggle-knob" />
+            </button>
+            <div className="divider" />
+            <button onClick={() => setSettingsOpen(true)} className="btn-icon" title="Settings">
               <Settings size={15} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* ══════════════════════════════════════════════════════════════ */}
-      {/* CONTENT                                                        */}
-      {/* ══════════════════════════════════════════════════════════════ */}
-      <main style={{ position: 'relative', zIndex: 1 }}>
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* OVERVIEW TAB                                                 */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {tab === 'overview' && (
+        <div style={{ animation: 'fadeUp 0.4s ease both' }}>
 
-        {/* ── OVERVIEW TAB ──────────────────────────────────────────── */}
-        {tab === 'overview' && (
-          <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+          {/* ── Hero: full-viewport, ring-centered ─────────────────── */}
+          <section className="hero" aria-label="Hero">
 
-            {/* Hero */}
-            <section style={{
-              maxWidth: 760, margin: '0 auto',
-              padding: '88px 24px 72px',
-              textAlign: 'center',
-            }}>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-                padding: '5px 14px', borderRadius: 999,
-                background: 'rgba(0,229,160,0.08)',
-                border: '1px solid rgba(0,229,160,0.22)',
-                marginBottom: 32,
-              }}>
-                <Zap size={12} color="var(--accent)" />
-                <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Automated price intelligence
-                </span>
-              </div>
+            {/* Starfield */}
+            <div className="starfield" aria-hidden="true" />
 
-              <h1 style={{
-                fontSize: 'clamp(2.25rem, 5vw, 3.75rem)',
-                fontWeight: 800,
-                lineHeight: 1.08,
-                letterSpacing: '-0.03em',
-                color: '#ffffff',
-                marginBottom: 20,
-              }}>
-                Know the moment<br />prices drop.
+            {/* Purple conic-gradient ring — scroll-animated via useOrbScroll */}
+            <div className="glow-orb" ref={orbRef} aria-hidden="true" />
+
+            {/* Hero text content */}
+            <div className="hero-content">
+              <h1 className="hero-headline">
+                Know the Moment<br />Prices Drop.
               </h1>
 
-              <p style={{
-                fontSize: '1.0625rem',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.7,
-                maxWidth: 520,
-                margin: '0 auto 40px',
-              }}>
+              <p className="hero-sub">
                 Scrape any product URL, set your target price, and get instant Discord notifications the moment the price falls. Fully automated.
               </p>
 
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button className="btn-accent" onClick={scrollToForm}>
-                  Start tracking <ArrowRight size={15} />
+              <div className="hero-cta">
+                <button className="btn-primary-hero" onClick={scrollToForm}>
+                  Start tracking <span aria-hidden="true" className="btn-arrow">↗</span>
                 </button>
-                <button className="btn-ghost" onClick={() => setTab('tracked')}>
+                <button className="btn-secondary-hero" onClick={() => setTab('tracked')}>
                   View products
                 </button>
               </div>
+            </div>
 
-              {/* Ambient glow line */}
-              <div style={{
-                marginTop: 72,
-                height: 1,
-                background: 'linear-gradient(90deg, transparent, rgba(0,229,160,0.3), transparent)',
-              }} />
-            </section>
+            {/* Bottom social-proof footer inside the hero viewport */}
+            <p className="hero-footer-text">Automated price intelligence · Discord Webhooks · Open source</p>
+          </section>
 
-            {/* Stats bar */}
-            {stats.total > 0 && (
-              <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 48px' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: 12,
-                }}>
-                  {[
-                    { label: 'Tracked',   value: stats.total,     color: 'var(--text-primary)' },
-                    { label: 'Active',    value: stats.active,    color: 'var(--accent)' },
-                    { label: 'Triggered', value: stats.triggered, color: '#f59e0b' },
-                    { label: 'Pending',   value: stats.pending,   color: '#60a5fa' },
-                  ].map(({ label, value, color }) => (
-                    <div
-                      key={label}
-                      className="glass glass-highlight"
-                      style={{ position: 'relative', padding: '20px 24px' }}
-                    >
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                        {label}
-                      </p>
-                      <p style={{ fontSize: '2rem', fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.02em' }}>
-                        {value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Feature cards */}
-            <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 64px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+          {/* ── Stats bar (only when products exist) ───────────────── */}
+          {stats.total > 0 && (
+            <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 48px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                 {[
-                  {
-                    icon: <Zap size={20} color="var(--accent)" />,
-                    title: 'Instant Scraping',
-                    desc: 'Playwright-powered headless browser extraction. Title, price, and cover image in under 5 seconds.',
-                  },
-                  {
-                    icon: <Bell size={20} color="var(--accent)" />,
-                    title: 'Discord Alerts',
-                    desc: 'Rich webhook embeds sent directly to your channel the moment a product hits your target price.',
-                  },
-                  {
-                    icon: <BarChart3 size={20} color="var(--accent)" />,
-                    title: 'Price History & Prediction',
-                    desc: 'Interactive charts with Monte Carlo simulation to estimate the probability of hitting your target.',
-                  },
-                ].map(({ icon, title, desc }) => (
-                  <div
-                    key={title}
-                    className="glass glass-hover glass-highlight"
-                    style={{ position: 'relative', padding: '28px 24px', transition: 'border-color 0.2s, background 0.2s' }}
-                  >
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      background: 'var(--accent-dim)',
-                      border: '1px solid rgba(0,229,160,0.18)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      marginBottom: 16,
-                    }}>
-                      {icon}
-                    </div>
-                    <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{title}</h3>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>{desc}</p>
+                  { label: 'Tracked',   value: stats.total,     color: 'var(--text-primary)' },
+                  { label: 'Active',    value: stats.active,    color: 'var(--accent)' },
+                  { label: 'Triggered', value: stats.triggered, color: '#f59e0b' },
+                  { label: 'Pending',   value: stats.pending,   color: '#60a5fa' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="glass glass-highlight" style={{ position: 'relative', padding: '20px 24px' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</p>
+                    <p style={{ fontSize: '2rem', fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</p>
                   </div>
                 ))}
               </div>
             </section>
+          )}
 
-            {/* Track form */}
-            <section
-              ref={formRef}
-              style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 96px' }}
-            >
-              <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                  Track a product
-                </h2>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: 6 }}>
-                  Paste a URL from books.toscrape.com and set your target price.
-                </p>
-              </div>
-              <AddProductForm onProductAdded={() => { fetchProducts(); setTab('tracked'); }} />
-            </section>
-          </div>
-        )}
-
-        {/* ── TRACKED TAB ───────────────────────────────────────────── */}
-        {tab === 'tracked' && (
-          <div
-            style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 24px 80px', animation: 'fadeUp 0.35s ease both' }}
-          >
-            {/* Header row */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 28, paddingBottom: 20,
-              borderBottom: '1px solid var(--border)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h2 style={{ fontSize: '1.1875rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                  Tracked Products
-                </h2>
-                {loading && (
+          {/* ── Feature cards ──────────────────────────────────────── */}
+          <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 64px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+              {[
+                {
+                  icon: <Zap size={20} color="var(--accent)" />,
+                  title: 'Instant Scraping',
+                  desc: 'Playwright-powered headless browser extraction. Title, price, and cover image in under 5 seconds.',
+                },
+                {
+                  icon: <Bell size={20} color="var(--accent)" />,
+                  title: 'Discord Alerts',
+                  desc: 'Rich webhook embeds sent directly to your channel the moment a product hits your target price.',
+                },
+                {
+                  icon: <BarChart3 size={20} color="var(--accent)" />,
+                  title: 'Price History & Prediction',
+                  desc: 'Interactive charts with Monte Carlo simulation to estimate the probability of hitting your target.',
+                },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="glass glass-hover glass-highlight" style={{ position: 'relative', padding: '28px 24px', transition: 'border-color 0.2s, background 0.2s' }}>
                   <div style={{
-                    width: 16, height: 16, border: '2px solid var(--border)',
-                    borderTopColor: 'var(--accent)', borderRadius: '50%',
-                    animation: 'spin 0.7s linear infinite',
-                  }} />
-                )}
-              </div>
-              {/* Live mini stats */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                {stats.active > 0 && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span className="stat-dot" style={{ background: 'var(--accent)' }} />
-                    {stats.active} active
-                  </span>
-                )}
-                {stats.pending > 0 && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span className="stat-dot" style={{ background: '#60a5fa', animation: 'pulse 1.5s ease infinite' }} />
-                    {stats.pending} pending
-                  </span>
-                )}
-                {stats.triggered > 0 && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span className="stat-dot" style={{ background: '#f59e0b' }} />
-                    {stats.triggered} triggered
-                  </span>
-                )}
-              </div>
+                    width: 40, height: 40, borderRadius: 10,
+                    background: 'var(--accent-dim)', border: '1px solid rgba(0,229,160,0.18)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+                  }}>
+                    {icon}
+                  </div>
+                  <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{title}</h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>{desc}</p>
+                </div>
+              ))}
             </div>
+          </section>
 
-            {/* Empty state */}
-            {!loading && products.length === 0 ? (
-              <div style={{
-                textAlign: 'center', padding: '64px 24px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-              }}>
-                <div className="glass" style={{ width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Package size={22} color="var(--text-muted)" />
-                </div>
-                <div>
-                  <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No products tracked yet</p>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Head to Overview to add your first product.</p>
-                </div>
-                <button className="btn-accent" style={{ marginTop: 8 }} onClick={() => setTab('overview')}>
-                  Go to Overview
-                </button>
-              </div>
-            ) : (
-              <>
+          {/* ── Add product form ───────────────────────────────────── */}
+          <section ref={formRef} style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 96px' }}>
+            <div style={{ textAlign: 'center', marginBottom: 32 }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                Track a product
+              </h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: 6 }}>
+                Paste a URL from books.toscrape.com and set your target price.
+              </p>
+            </div>
+            <AddProductForm onProductAdded={() => { fetchProducts(); setTab('tracked'); }} />
+          </section>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* TRACKED TAB                                                  */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {tab === 'tracked' && (
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 24px 80px', animation: 'fadeUp 0.35s ease both' }}>
+          {/* Header row */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid var(--border)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ fontSize: '1.1875rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                Tracked Products
+              </h2>
+              {loading && (
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                  gap: 14,
-                }}>
-                  {products.map((product, idx) => (
-                    <div
-                      key={product.id}
-                      style={{ animation: `fadeUp 0.35s ${idx * 50}ms ease both` }}
-                    >
-                      <ProductCard
-                        product={product}
-                        isSelected={selectedId === product.id}
-                        onSelect={handleSelect}
-                        onDelete={handleDelete}
-                        onUpdate={fetchProducts}
-                      />
-                    </div>
-                  ))}
-                </div>
+                  width: 16, height: 16, border: '2px solid var(--border)',
+                  borderTopColor: 'var(--accent)', borderRadius: '50%',
+                  animation: 'spin 0.7s linear infinite',
+                }} />
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              {stats.active > 0 && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span className="stat-dot" style={{ background: 'var(--accent)' }} />
+                  {stats.active} active
+                </span>
+              )}
+              {stats.pending > 0 && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span className="stat-dot" style={{ background: '#60a5fa', animation: 'pulse 1.5s ease infinite' }} />
+                  {stats.pending} pending
+                </span>
+              )}
+              {stats.triggered > 0 && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span className="stat-dot" style={{ background: '#f59e0b' }} />
+                  {stats.triggered} triggered
+                </span>
+              )}
+            </div>
+          </div>
 
-                {/* Price chart */}
-                {selectedProduct && selectedProduct.status !== 'Pending' && (
-                  <div style={{ marginTop: 24, animation: 'chartSlideUp 0.4s ease both' }} key={selectedProduct.id}>
-                    <PriceChart
-                      productId={selectedProduct.id}
-                      productTitle={selectedProduct.title}
-                      targetPrice={selectedProduct.target_price}
-                      currencySymbol={selectedProduct.currency_symbol}
+          {/* Empty state */}
+          {!loading && products.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '64px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              <div className="glass" style={{ width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Package size={22} color="var(--text-muted)" />
+              </div>
+              <div>
+                <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No products tracked yet</p>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Head to Overview to add your first product.</p>
+              </div>
+              <button className="btn-accent" style={{ marginTop: 8 }} onClick={() => setTab('overview')}>Go to Overview</button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+                {products.map((product, idx) => (
+                  <div key={product.id} style={{ animation: `fadeUp 0.35s ${idx * 50}ms ease both` }}>
+                    <ProductCard
+                      product={product}
+                      isSelected={selectedId === product.id}
+                      onSelect={handleSelect}
+                      onDelete={handleDelete}
+                      onUpdate={fetchProducts}
                     />
                   </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </main>
+                ))}
+              </div>
+
+              {selectedProduct && selectedProduct.status !== 'Pending' && (
+                <div style={{ marginTop: 24, animation: 'chartSlideUp 0.4s ease both' }} key={selectedProduct.id}>
+                  <PriceChart
+                    productId={selectedProduct.id}
+                    productTitle={selectedProduct.title}
+                    targetPrice={selectedProduct.target_price}
+                    currencySymbol={selectedProduct.currency_symbol}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Footer */}
       <footer style={{
-        borderTop: '1px solid var(--border)',
-        background: 'rgba(5,5,5,0.6)',
-        padding: '18px 24px',
-        position: 'relative', zIndex: 1,
+        borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.8)',
+        padding: '18px 24px', position: 'relative', zIndex: 1,
       }}>
         <div style={{
           maxWidth: 1120, margin: '0 auto',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 8,
         }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            © 2026 PriceMonitor
-          </span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>© 2026 PriceMonitor</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             <Shield size={12} />
             <span>books.toscrape.com · Discord Webhooks · SQLite</span>
@@ -479,7 +367,6 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Settings Modal */}
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );

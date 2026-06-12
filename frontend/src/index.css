@@ -1,68 +1,361 @@
 @import 'tailwindcss';
 
-/* ─── Custom Fonts ────────────────────────────────────────────────────────── */
+/* ─── Fonts ───────────────────────────────────────────────────────────────── */
 @theme {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-display: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
 }
 
-/* ─── Base ────────────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
-
+/* ─── Base reset ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background-color: #050505;
-  color: #e8e8e8;
+  font-family: 'Plus Jakarta Sans', 'Inter', 'SF Pro Display', -apple-system, sans-serif;
+  background: #000000;
+  color: #ffffff;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── CSS Custom Properties (Design Tokens) ──────────────────────────────── */
+/* ─── Design tokens ───────────────────────────────────────────────────────── */
 :root {
-  /* Accent: single teal/green — like Cryptix reference */
-  --accent:       #00e5a0;
-  --accent-dim:   rgba(0, 229, 160, 0.12);
-  --accent-glow:  rgba(0, 229, 160, 0.25);
-  --accent-ring:  rgba(0, 229, 160, 0.35);
+  /* Purple accent palette (hero ring) */
+  --purple:        #7C3AED;
+  --purple-dark:   #6D28D9;
+  --purple-light:  #8B5CF6;
 
-  /* Background layers */
-  --bg-base:      #050505;
-  --bg-surface:   rgba(255, 255, 255, 0.028);
-  --bg-elevated:  rgba(255, 255, 255, 0.048);
-  --bg-hover:     rgba(255, 255, 255, 0.06);
+  /* App accent (teal — cards, badges, charts) */
+  --accent:        #00e5a0;
+  --accent-dim:    rgba(0, 229, 160, 0.10);
+  --accent-glow:   rgba(0, 229, 160, 0.25);
+  --accent-ring:   rgba(0, 229, 160, 0.35);
+
+  /* Surfaces */
+  --bg-base:       #000000;
+  --bg-surface:    rgba(255, 255, 255, 0.028);
+  --bg-elevated:   rgba(255, 255, 255, 0.048);
+  --bg-hover:      rgba(255, 255, 255, 0.06);
 
   /* Borders */
-  --border:       rgba(255, 255, 255, 0.07);
-  --border-hover: rgba(255, 255, 255, 0.14);
-  --border-accent:rgba(0, 229, 160, 0.35);
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-hover:  rgba(255, 255, 255, 0.14);
+  --border-accent: rgba(0, 229, 160, 0.35);
+  --border-subtle: rgba(255, 255, 255, 0.12);
 
   /* Text */
-  --text-primary:   #f0f0f0;
-  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-primary:   #ffffff;
+  --text-secondary: #9CA3AF;
   --text-muted:     rgba(255, 255, 255, 0.28);
 
-  /* Glass effect */
-  --glass-blur:   blur(20px) saturate(160%);
-  --glass-blur-lg:blur(40px) saturate(180%);
+  /* Glass */
+  --glass-blur:    blur(20px) saturate(160%);
+  --glass-blur-lg: blur(40px) saturate(180%);
 }
 
-/* ─── The single background radial glow (CSS, not JS) ───────────────────── */
-body::before {
-  content: '';
-  position: fixed;
+/* ─── HERO SECTION ────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  min-height: calc(100vh - 60px); /* subtract nav height */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background-color: #000000;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* Starfield — scattered white dots via layered radial-gradients */
+.starfield {
+  position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
-  z-index: 0;
-  /* A single off-center teal radial glow — matches Cryptix reference exactly */
-  background:
-    radial-gradient(ellipse 60% 55% at 50% 85%, rgba(0, 229, 160, 0.09) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 80% 20%, rgba(0, 229, 160, 0.04) 0%, transparent 65%);
+  background-image:
+    radial-gradient(1px 1px at 8%  18%, rgba(255,255,255,0.65) 0, transparent 50%),
+    radial-gradient(1px 1px at 22% 72%, rgba(255,255,255,0.5)  0, transparent 50%),
+    radial-gradient(1.5px 1.5px at 37% 12%, rgba(255,255,255,0.45) 0, transparent 50%),
+    radial-gradient(1px 1px at 55% 58%, rgba(255,255,255,0.5)  0, transparent 50%),
+    radial-gradient(1px 1px at 70% 28%, rgba(255,255,255,0.4)  0, transparent 50%),
+    radial-gradient(1.5px 1.5px at 83% 82%, rgba(255,255,255,0.55) 0, transparent 50%),
+    radial-gradient(1px 1px at 4%  47%, rgba(255,255,255,0.35) 0, transparent 50%),
+    radial-gradient(1.5px 1.5px at 93% 8%,  rgba(255,255,255,0.5)  0, transparent 50%),
+    radial-gradient(1px 1px at 48% 88%, rgba(255,255,255,0.4)  0, transparent 50%),
+    radial-gradient(1px 1px at 28% 38%, rgba(255,255,255,0.45) 0, transparent 50%),
+    radial-gradient(1px 1px at 63% 4%,  rgba(255,255,255,0.4)  0, transparent 50%),
+    radial-gradient(1.5px 1.5px at 88% 48%, rgba(255,255,255,0.5)  0, transparent 50%),
+    radial-gradient(1px 1px at 13% 93%, rgba(255,255,255,0.4)  0, transparent 50%),
+    radial-gradient(1px 1px at 43% 53%, rgba(255,255,255,0.35) 0, transparent 50%),
+    radial-gradient(1px 1px at 78% 63%, rgba(255,255,255,0.45) 0, transparent 50%),
+    radial-gradient(1px 1px at 17% 34%, rgba(255,255,255,0.4)  0, transparent 50%),
+    radial-gradient(1px 1px at 58% 78%, rgba(255,255,255,0.35) 0, transparent 50%),
+    radial-gradient(1.5px 1.5px at 96% 66%, rgba(255,255,255,0.45) 0, transparent 50%),
+    radial-gradient(1px 1px at 33% 22%, rgba(255,255,255,0.5)  0, transparent 50%),
+    radial-gradient(1px 1px at 74% 44%, rgba(255,255,255,0.38) 0, transparent 50%);
+  background-size: 100% 100%;
+  opacity: 0.55;
 }
 
-/* ─── Glass Card Utility ─────────────────────────────────────────────────── */
+/* Purple conic-gradient ring — donut/halo shape */
+.glow-orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /*
+   * Initial state: centered by transform (overridden by JS for scroll animation).
+   * JS sets: translate(calc(-50% + Xpx), calc(-50% + Ypx)) rotate(Xdeg) scale(S)
+   */
+  transform: translate(-50%, -50%);
+  width:  min(56vw, 760px);
+  height: min(56vw, 760px);
+  border-radius: 50%;
+  /* Conic gradient cycling through several purple shades */
+  background: conic-gradient(
+    from 0deg,
+    #6D28D9,
+    #A78BFA,
+    #4C1D95,
+    #7C3AED,
+    #5B21B6,
+    #C4B5FD,
+    #6D28D9
+  );
+  /* Mask: transparent center + transparent outer edge = ring/donut */
+  -webkit-mask: radial-gradient(circle, transparent 40%, #000 52%, #000 68%, transparent 82%);
+          mask: radial-gradient(circle, transparent 40%, #000 52%, #000 68%, transparent 82%);
+  filter: blur(8px);
+  opacity: 0.9;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Hero content sits above the ring */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 800px;
+  width: 100%;
+}
+
+/* Main headline */
+.hero-headline {
+  font-size: clamp(2.25rem, 5.5vw, 3.75rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  max-width: 14ch;
+  margin-bottom: 1.25rem;
+}
+
+/* Sub-headline */
+.hero-sub {
+  font-size: clamp(0.95rem, 1.6vw, 1.125rem);
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 38ch;
+  letter-spacing: 0.01em;
+  margin-bottom: 2.5rem;
+}
+
+/* CTA button row */
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+/* Primary CTA — purple, white text, arrow */
+.btn-primary-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--purple);
+  background-color: var(--purple);
+  color: #ffffff;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  /* Separate transitions for color vs. lift */
+  transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+}
+.btn-primary-hero:hover {
+  background-color: var(--purple-light);
+  border-color: var(--purple-light);
+  transform: translateY(-1px);
+}
+.btn-primary-hero:active {
+  background-color: var(--purple-dark);
+  transform: translateY(0);
+}
+
+/* Arrow icon inside primary CTA */
+.btn-arrow {
+  font-size: 1.05em;
+  line-height: 1;
+  transform: translateY(-1px);
+  display: inline-block;
+}
+
+/* Secondary CTA — glassmorphism, white text */
+.btn-secondary-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #ffffff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+}
+.btn-secondary-hero:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+.btn-secondary-hero:active {
+  transform: translateY(0);
+}
+
+/* Hero footer text — absolute bottom of viewport */
+.hero-footer-text {
+  position: absolute;
+  bottom: 1.75rem;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+/* ─── NAVIGATION BAR ──────────────────────────────────────────────────────── */
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px var(--accent-glow);
+  flex-shrink: 0;
+}
+
+.brand-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.tab-switcher {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.demo-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* hide on mobile */
+@media (max-width: 480px) {
+  .demo-label { display: none; }
+}
+
+.tab-badge {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.tab-badge.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ─── Nav Tab ─────────────────────────────────────────────────────────────── */
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+}
+.nav-tab:hover  { color: var(--text-primary); }
+.nav-tab.active {
+  background: var(--bg-elevated);
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+}
+
+/* ─── Glass Cards ─────────────────────────────────────────────────────────── */
 .glass {
   background: var(--bg-surface);
   backdrop-filter: var(--glass-blur);
@@ -70,7 +363,6 @@ body::before {
   border: 1px solid var(--border);
   border-radius: 14px;
 }
-
 .glass-lg {
   background: var(--bg-surface);
   backdrop-filter: var(--glass-blur-lg);
@@ -78,27 +370,21 @@ body::before {
   border: 1px solid var(--border);
   border-radius: 16px;
 }
-
 .glass-hover:hover {
   background: var(--bg-elevated);
   border-color: var(--border-hover);
 }
-
-/* Top-edge inner highlight — gives the authentic glass look */
+/* Top inner highlight */
 .glass-highlight::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(255,255,255,0.055) 0%,
-    transparent 40%
-  );
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 40%);
 }
 
-/* ─── Accent Button ──────────────────────────────────────────────────────── */
+/* ─── App accent button (teal — used in cards/forms/empty states) ─────────── */
 .btn-accent {
   background: var(--accent);
   color: #000;
@@ -114,11 +400,12 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: inherit;
 }
 .btn-accent:hover  { opacity: 0.88; box-shadow: 0 0 28px var(--accent-glow); }
 .btn-accent:active { transform: scale(0.97); }
 
-/* Ghost button */
+/* Ghost button (teal border variant) */
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
@@ -132,6 +419,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: inherit;
 }
 .btn-ghost:hover {
   border-color: var(--border-hover);
@@ -151,6 +439,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-family: inherit;
 }
 .btn-icon:hover {
   background: var(--bg-elevated);
@@ -158,53 +447,19 @@ body::before {
   color: var(--text-primary);
 }
 
-/* ─── Nav Tab ────────────────────────────────────────────────────────────── */
-.nav-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 18px;
-  border-radius: 8px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.18s, color 0.18s;
-  border: none;
-  background: transparent;
-}
-.nav-tab:hover  { color: var(--text-primary); }
-.nav-tab.active {
-  background: var(--bg-elevated);
-  color: var(--accent);
-  border: 1px solid var(--border-accent);
-}
-
-/* ─── Stat Badge ─────────────────────────────────────────────────────────── */
-.stat-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-/* ─── Toggle Switch ──────────────────────────────────────────────────────── */
+/* ─── Toggle Switch ───────────────────────────────────────────────────────── */
 .toggle {
   position: relative;
   width: 40px;
   height: 22px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.25s, border-color 0.25s;
   flex-shrink: 0;
 }
-.toggle.on {
-  background: var(--accent);
-  border-color: var(--accent);
-}
+.toggle.on { background: var(--accent); border-color: var(--accent); }
 .toggle-knob {
   position: absolute;
   top: 2px;
@@ -214,14 +469,15 @@ body::before {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: block;
 }
 .toggle.on .toggle-knob { transform: translateX(18px); }
 
-/* ─── Input ──────────────────────────────────────────────────────────────── */
+/* ─── Input ───────────────────────────────────────────────────────────────── */
 .input {
   width: 100%;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 11px 16px;
@@ -238,7 +494,7 @@ body::before {
 }
 .input:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ─── Badge ──────────────────────────────────────────────────────────────── */
+/* ─── Badge ───────────────────────────────────────────────────────────────── */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -251,7 +507,16 @@ body::before {
   border: 1px solid;
 }
 
-/* ─── Divider ────────────────────────────────────────────────────────────── */
+/* ─── Stat dot ────────────────────────────────────────────────────────────── */
+.stat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ─── Divider ─────────────────────────────────────────────────────────────── */
 .divider {
   width: 1px;
   height: 20px;
@@ -259,7 +524,7 @@ body::before {
   flex-shrink: 0;
 }
 
-/* ─── Animations ─────────────────────────────────────────────────────────── */
+/* ─── Animations ──────────────────────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -291,25 +556,57 @@ body::before {
   0%, 100% { border-color: rgba(0, 229, 160, 0.15); }
   50%       { border-color: rgba(0, 229, 160, 0.45); }
 }
-@keyframes accentPulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
-  50%       { box-shadow: 0 0 0 6px transparent; }
-}
 @keyframes statusPulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.55; }
 }
-@keyframes floatOrb {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(30px, -20px) scale(1.04); }
-  66%       { transform: translate(-20px, 15px) scale(0.97); }
-}
 
-/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar        { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track  { background: transparent; }
 ::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.1); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
 
-/* ─── Selection ──────────────────────────────────────────────────────────── */
-::selection { background: var(--accent-dim); color: var(--accent); }
+/* ─── Selection ───────────────────────────────────────────────────────────── */
+::selection { background: rgba(124,58,237,0.25); color: #C4B5FD; }
+
+/* ─── Responsive hero adjustments ────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .hero { padding: 1.5rem 1.25rem 5rem; }
+
+  .hero-headline {
+    font-size: clamp(1.85rem, 8vw, 2.5rem);
+    max-width: 16ch;
+    margin-bottom: 1rem;
+  }
+
+  .hero-sub {
+    font-size: 0.9375rem;
+    max-width: 30ch;
+    margin-bottom: 2rem;
+  }
+
+  .hero-cta {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .btn-primary-hero,
+  .btn-secondary-hero {
+    width: 100%;
+    padding: 0.85rem 1.5rem;
+  }
+
+  .glow-orb {
+    width: 110vw;
+    height: 110vw;
+    /* Increase blur slightly on mobile so the oversized ring still looks refined */
+    filter: blur(16px);
+  }
+
+  .hero-footer-text {
+    bottom: 1.25rem;
+    font-size: 0.75rem;
+  }
+}
