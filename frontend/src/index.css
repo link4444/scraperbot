@@ -20,10 +20,10 @@ body {
 
 /* ─── Design tokens ───────────────────────────────────────────────────────── */
 :root {
-  /* Purple accent palette (hero ring) */
-  --purple:        #7C3AED;
-  --purple-dark:   #6D28D9;
-  --purple-light:  #8B5CF6;
+  /* Navy blue accent palette (hero ring) */
+  --navy:        #1E3A8A;
+  --navy-dark:   #172554;
+  --navy-light:  #3B82F6;
 
   /* App accent (teal — cards, badges, charts) */
   --accent:        #ffffff;
@@ -32,7 +32,7 @@ body {
   --accent-ring:   rgba(255, 255, 255, 0.18);
 
   /* Surfaces */
-  --bg-base:       #000000;
+  --bg-base:       #020617; /* Very deep slate/navy */
   --bg-surface:    rgba(255, 255, 255, 0.028);
   --bg-elevated:   rgba(255, 255, 255, 0.048);
   --bg-hover:      rgba(255, 255, 255, 0.06);
@@ -64,7 +64,7 @@ body {
   justify-content: center;
   text-align: center;
   padding: 2rem 1.5rem;
-  background-color: #000000;
+  background-color: var(--bg-base);
   isolation: isolate;
   overflow: hidden;
 }
@@ -110,19 +110,19 @@ body {
    * JS sets: translate(calc(-50% + Xpx), calc(-50% + Ypx)) rotate(Xdeg) scale(S)
    */
   transform: translate(-50%, -50%);
-  width:  min(56vw, 760px);
-  height: min(56vw, 760px);
+  width:  min(90vw, 1200px);
+  height: min(90vw, 1200px);
   border-radius: 50%;
-  /* Conic gradient cycling through several purple shades */
+  /* Conic gradient cycling through deep navy blues */
   background: conic-gradient(
     from 0deg,
-    #6D28D9,
-    #A78BFA,
-    #4C1D95,
-    #7C3AED,
-    #5B21B6,
-    #C4B5FD,
-    #6D28D9
+    #172554,
+    #1E3A8A,
+    #0F172A,
+    #172554,
+    #2563EB,
+    #1E3A8A,
+    #172554
   );
   /* Mask: transparent center + transparent outer edge = ring/donut */
   -webkit-mask: radial-gradient(circle, transparent 40%, #000 52%, #000 68%, transparent 82%);
@@ -176,7 +176,7 @@ body {
   gap: 1rem;
 }
 
-/* Primary CTA — purple, white text, arrow */
+/* Primary CTA — navy, white text, arrow */
 .btn-primary-hero {
   display: inline-flex;
   align-items: center;
@@ -187,8 +187,8 @@ body {
   font-weight: 500;
   padding: 0.55rem 1.25rem;
   border-radius: 8px;
-  border: 1px solid var(--purple);
-  background-color: var(--purple);
+  border: 1px solid var(--navy);
+  background-color: var(--navy);
   color: #ffffff;
   cursor: pointer;
   text-decoration: none;
@@ -197,12 +197,12 @@ body {
   transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
 }
 .btn-primary-hero:hover {
-  background-color: var(--purple-light);
-  border-color: var(--purple-light);
+  background-color: var(--navy-light);
+  border-color: var(--navy-light);
   transform: translateY(-1px);
 }
 .btn-primary-hero:active {
-  background-color: var(--purple-dark);
+  background-color: var(--navy-dark);
   transform: translateY(0);
 }
 

@@ -50,6 +50,7 @@ export default function App() {
   const [togglingDemo, setTogglingDemo] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tab, setTab]                   = useState<Tab>('overview');
+  const [filter, setFilter]             = useState<'all' | 'active' | 'triggered' | 'error'>('all');
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const formRef     = useRef<HTMLDivElement>(null);
@@ -106,9 +107,17 @@ export default function App() {
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const selectedProduct = products.find(p => p.id === selectedId);
 
+  const filteredProducts = products.filter(p => {
+    if (filter === 'all') return true;
+    if (filter === 'active') return p.status === 'Active' || p.status === 'Pending';
+    if (filter === 'triggered') return p.status === 'Triggered';
+    if (filter === 'error') return p.status === 'Error';
+    return true;
+  });
+
   /* ═══════════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ minHeight: '100vh', background: '#000000', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', position: 'relative' }}>
 
       {/* ── Sticky Nav ─────────────────────────────────────────────── */}
       <header className="site-nav">
@@ -306,6 +315,33 @@ export default function App() {
             </div>
           </div>
 
+          {/* Sub-navigation tabs */}
+          {products.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
+              {[
+                { id: 'all', label: 'All Products' },
+                { id: 'active', label: 'Actively Tracked' },
+                { id: 'triggered', label: 'Triggered' },
+                { id: 'error', label: 'Failed' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setFilter(f.id as any)}
+                  className="btn-ghost"
+                  style={{
+                    padding: '6px 14px', borderRadius: 20, fontSize: '0.8125rem',
+                    fontWeight: filter === f.id ? 600 : 500,
+                    background: filter === f.id ? 'var(--bg-hover)' : 'transparent',
+                    color: filter === f.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    border: `1px solid ${filter === f.id ? 'var(--border)' : 'transparent'}`,
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Empty state */}
           {!loading && products.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '64px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
@@ -320,9 +356,14 @@ export default function App() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
-                {products.map((product, idx) => (
-                  <div key={product.id} style={{ animation: `fadeUp 0.35s ${idx * 50}ms ease both` }}>
+              {filteredProducts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                  No products match this filter.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+                  {filteredProducts.map((product, idx) => (
+                    <div key={product.id} style={{ animation: `fadeUp 0.35s ${idx * 50}ms ease both` }}>
                     <ProductCard
                       product={product}
                       isSelected={selectedId === product.id}
@@ -330,9 +371,10 @@ export default function App() {
                       onDelete={handleDelete}
                       onUpdate={fetchProducts}
                     />
-                  </div>
-                ))}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {selectedProduct && selectedProduct.status !== 'Pending' && (
                 <div style={{ marginTop: 24, animation: 'chartSlideUp 0.4s ease both' }} key={selectedProduct.id}>
@@ -351,7 +393,7 @@ export default function App() {
 
       {/* Footer */}
       <footer style={{
-        borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.8)',
+        borderTop: '1px solid var(--border)', background: 'rgba(2, 6, 23, 0.82)',
         padding: '18px 24px', position: 'relative', zIndex: 1,
       }}>
         <div style={{
