@@ -12,7 +12,6 @@ import asyncio
 from typing import Optional
 
 import httpx
-import cloudscraper
 from playwright.async_api import async_playwright
 
 logger = logging.getLogger(__name__)
@@ -240,51 +239,53 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
 # Public API — tries httpx first, falls back to Playwright
 # ---------------------------------------------------------------------------
 
-def _fetch_coingecko_sync(coin_id: str) -> Optional[dict]:
-    """Synchronous helper using cloudscraper to bypass Cloudflare."""
-    scraper = cloudscraper.create_scraper()
-    
-    # Fetch coin details
-    detail_url = (
-        f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-        "?localization=false&tickers=false&market_data=true"
-        "&community_data=false&developer_data=false&sparkline=false"
-    )
-    detail_resp = scraper.get(detail_url, timeout=20)
-    detail_resp.raise_for_status()
-    data = detail_resp.json()
-    
-    # Fetch 30-day market history
-    history_url = (
-        f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-        "/market_chart?vs_currency=usd&days=30"
-    )
-    history_resp = scraper.get(history_url, timeout=20)
-    history_resp.raise_for_status()
-    history_data = history_resp.json()
-    
-    raw_history = history_data.get("prices", [])
-    logger.info("Fetched %d raw historical data points for %s", len(raw_history), coin_id)
-    
-    return {
-        "title": f"{data['name']} (Crypto)",
-        "price": float(data["market_data"]["current_price"]["usd"]),
-        "image_url": data["image"]["large"],
-        "currency_symbol": "$",
-        "currency_code": "USD",
-        "history": raw_history,
-    }
+import time
 
 async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
     """
-    Fetch current price, metadata AND 30-day historical data from CoinGecko
-    in exactly TWO API calls (coin details + market_chart).
-    Uses cloudscraper via to_thread to bypass Cloudflare blocks on Render.
+    Fetch current price and historical data for a cryptocurrency.
+    Uses DefiLlama's open API to completely bypass CoinGecko's aggressive
+    Cloudflare blocking on Render IP addresses.
     """
     try:
-        return await asyncio.to_thread(_fetch_coingecko_sync, coin_id)
+        async with httpx.AsyncClient(timeout=20) as client:
+            now = int(time.time())
+            
+            # Fetch 30-day market history
+            history_url = f"https://coins.llama.fi/chart/coingecko:{coin_id}?end={now}&span=30&period=1d"
+            history_resp = await client.get(history_url)
+            history_resp.raise_for_status()
+            history_data = history_resp.json()
+            
+            # Extract prices and symbol
+            coin_data = history_data.get("coins", {}).get(f"coingecko:{coin_id}", {})
+            prices_raw = coin_data.get("prices", [])
+            symbol = coin_data.get("symbol", coin_id.upper())
+            
+            # Convert to expected CoinGecko format: [[timestamp_ms, price], ...]
+            raw_history = [[p["timestamp"] * 1000, p["price"]] for p in prices_raw]
+            
+            # Fetch precise current price
+            curr_url = f"https://coins.llama.fi/prices/current/coingecko:{coin_id}"
+            curr_resp = await client.get(curr_url)
+            curr_resp.raise_for_status()
+            curr_data = curr_resp.json()
+            
+            current_price_data = curr_data.get("coins", {}).get(f"coingecko:{coin_id}", {})
+            current_price = current_price_data.get("price", raw_history[-1][1] if raw_history else 0)
+            
+            logger.info("Fetched %d historical data points for %s via DefiLlama", len(raw_history), coin_id)
+            
+            return {
+                "title": f"{coin_id.capitalize()} (Crypto)",
+                "price": float(current_price),
+                "image_url": f"https://cryptologos.cc/logos/{coin_id}-{symbol.lower()}-logo.png",
+                "currency_symbol": "$",
+                "currency_code": "USD",
+                "history": raw_history,
+            }
     except Exception:
-        logger.exception("CoinGecko API failed for coin: %s", coin_id)
+        logger.exception("DefiLlama API failed for coin: %s", coin_id)
         return None
 
 
