@@ -13,6 +13,7 @@ const WH_REGEX = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webho
 export default function SettingsModal({ isOpen, onClose, onSave }: Props) {
   const [webhookUrl, setWebhookUrl] = useState('');
   const [aiProvider, setAiProvider] = useState<'online' | 'local'>('online');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [testing,    setTesting]    = useState(false);
@@ -22,9 +23,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: Props) {
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true); setStatus(null); setValErr('');
-    axios.get<{ discord_webhook_url: string; ai_provider: string }>('/api/settings')
+    axios.get<{ discord_webhook_url: string; ai_provider: string; gemini_api_key: string }>('/api/settings')
       .then(r => {
         setWebhookUrl(r.data.discord_webhook_url || '');
+        setGeminiApiKey(r.data.gemini_api_key || '');
         if (r.data.ai_provider === 'local') setAiProvider('local');
         else setAiProvider('online');
       })
@@ -44,9 +46,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: Props) {
     if (!validate(webhookUrl)) return;
     setSaving(true); setStatus(null);
     try {
-      const r = await axios.post<{ discord_webhook_url: string; ai_provider: string }>('/api/settings', { 
+      const r = await axios.post<{ discord_webhook_url: string; ai_provider: string; gemini_api_key: string }>('/api/settings', { 
         discord_webhook_url: webhookUrl.trim(),
-        ai_provider: aiProvider
+        ai_provider: aiProvider,
+        gemini_api_key: geminiApiKey.trim()
       });
       setWebhookUrl(r.data.discord_webhook_url || '');
       const newProvider = r.data.ai_provider === 'local' ? 'local' : 'online';
@@ -186,9 +189,27 @@ export default function SettingsModal({ isOpen, onClose, onSave }: Props) {
                       </button>
                     </div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.4 }}>
-                      Online uses Gemini API (requires key in .env). Local uses Ollama running on your machine on port 11434 with 'llama3' model.
+                      Online uses Gemini API (requires key below). Local uses Ollama running on your machine on port 11434 with 'llama3' model.
                     </p>
                   </div>
+                  {aiProvider === 'online' && (
+                    <div style={{ marginTop: 8 }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Gemini API Key
+                      </label>
+                      <input
+                        type="password"
+                        value={geminiApiKey}
+                        onChange={e => setGeminiApiKey(e.target.value)}
+                        placeholder="AIzaSy..."
+                        disabled={saving}
+                        className="input"
+                      />
+                      <p style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                        Your key is saved locally in the database. Required for online analysis.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

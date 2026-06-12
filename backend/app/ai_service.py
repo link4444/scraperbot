@@ -60,7 +60,8 @@ async def get_ai_analysis(
     asset_name: str, 
     current_price: float, 
     history: list, 
-    provider: str = "local"
+    provider: str = "online",
+    api_key: str = None
 ) -> dict:
     
     cache_key = f"ai_analysis:{product_id}"
@@ -118,7 +119,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
         # Ideally, we'd hit OpenAI or Gemini here.
         # We will just simulate it for safety if no key is provided, or hit Gemini if key exists.
         import os
-        gemini_key = os.environ.get("GEMINI_API_KEY")
+        gemini_key = api_key or os.environ.get("GEMINI_API_KEY")
         if gemini_key:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
             try:
@@ -162,7 +163,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
         logger.error(f"Raw response: {result_json}")
         raise ValueError("AI returned invalid data format.")
 
-async def ai_chat(asset_name: str, current_price: float, question: str, provider: str = "online") -> str:
+async def ai_chat(asset_name: str, current_price: float, question: str, provider: str = "online", api_key: str = None) -> str:
     """Chat with the AI Analyst about the asset."""
     system_prompt = f"""You are a strict financial AI analyst. You are currently analyzing {asset_name} which is priced at ${current_price}.
 CRITICAL RULES:
@@ -188,7 +189,7 @@ User's question: {question}"""
             raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
     else:
         import os
-        gemini_key = os.environ.get("GEMINI_API_KEY")
+        gemini_key = api_key or os.environ.get("GEMINI_API_KEY")
         if gemini_key:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
             try:
