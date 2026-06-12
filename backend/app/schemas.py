@@ -104,3 +104,8 @@ class SettingsUpdate(BaseModel):
     discord_webhook_url: Optional[str] = None
     ai_provider: Optional[str] = "online"
 
+class ChatRequest(BaseModel):
+    """Request body for AI Chat."""
+    question: str
+    provider: str = "online"
+

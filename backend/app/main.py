@@ -29,6 +29,7 @@ from app.schemas import (
     PricePredictionResponse,
     SettingsResponse,
     SettingsUpdate,
+    ChatRequest,
 )
 from app.scraper import scrape_book
 from app.ai_service import get_ai_analysis
@@ -391,10 +392,6 @@ async def fetch_ai_analysis(product_id: int, provider: str = "online", db: Sessi
         return analysis
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-class ChatRequest(BaseModel):
-    question: str
-    provider: str = "online"
 
 @app.post("/api/products/{product_id}/ai-chat")
 async def chat_with_ai(product_id: int, payload: ChatRequest, db: Session = Depends(get_session)):
