@@ -8,9 +8,11 @@ if that fails, a headless Playwright browser is used as a fallback.
 
 import logging
 import re
+import asyncio
 from typing import Optional
 
 import httpx
+import cloudscraper
 from playwright.async_api import async_playwright
 
 logger = logging.getLogger(__name__)
@@ -238,49 +240,49 @@ async def scrape_book_playwright(url: str) -> Optional[dict]:
 # Public API — tries httpx first, falls back to Playwright
 # ---------------------------------------------------------------------------
 
+def _fetch_coingecko_sync(coin_id: str) -> Optional[dict]:
+    """Synchronous helper using cloudscraper to bypass Cloudflare."""
+    scraper = cloudscraper.create_scraper()
+    
+    # Fetch coin details
+    detail_url = (
+        f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+        "?localization=false&tickers=false&market_data=true"
+        "&community_data=false&developer_data=false&sparkline=false"
+    )
+    detail_resp = scraper.get(detail_url, timeout=20)
+    detail_resp.raise_for_status()
+    data = detail_resp.json()
+    
+    # Fetch 30-day market history
+    history_url = (
+        f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+        "/market_chart?vs_currency=usd&days=30"
+    )
+    history_resp = scraper.get(history_url, timeout=20)
+    history_resp.raise_for_status()
+    history_data = history_resp.json()
+    
+    raw_history = history_data.get("prices", [])
+    logger.info("Fetched %d raw historical data points for %s", len(raw_history), coin_id)
+    
+    return {
+        "title": f"{data['name']} (Crypto)",
+        "price": float(data["market_data"]["current_price"]["usd"]),
+        "image_url": data["image"]["large"],
+        "currency_symbol": "$",
+        "currency_code": "USD",
+        "history": raw_history,
+    }
+
 async def _fetch_coingecko_all(coin_id: str) -> Optional[dict]:
     """
     Fetch current price, metadata AND 30-day historical data from CoinGecko
     in exactly TWO API calls (coin details + market_chart).
-    Returns a combined dict with a 'history' key containing raw price data.
+    Uses cloudscraper via to_thread to bypass Cloudflare blocks on Render.
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json"
-    }
-    
     try:
-        async with httpx.AsyncClient(timeout=20, headers=headers) as client:
-            # Fetch coin details (name, image, current price)
-            detail_url = (
-                f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-                "?localization=false&tickers=false&market_data=true"
-                "&community_data=false&developer_data=false&sparkline=false"
-            )
-            detail_resp = await client.get(detail_url)
-            detail_resp.raise_for_status()
-            data = detail_resp.json()
-            
-            # Fetch 30-day market history
-            history_url = (
-                f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-                "/market_chart?vs_currency=usd&days=30"
-            )
-            history_resp = await client.get(history_url)
-            history_resp.raise_for_status()
-            history_data = history_resp.json()
-            
-            raw_history = history_data.get("prices", [])
-            logger.info("Fetched %d raw historical data points for %s", len(raw_history), coin_id)
-            
-            return {
-                "title": f"{data['name']} (Crypto)",
-                "price": float(data["market_data"]["current_price"]["usd"]),
-                "image_url": data["image"]["large"],
-                "currency_symbol": "$",
-                "currency_code": "USD",
-                "history": raw_history,  # list of [timestamp_ms, price]
-            }
+        return await asyncio.to_thread(_fetch_coingecko_sync, coin_id)
     except Exception:
         logger.exception("CoinGecko API failed for coin: %s", coin_id)
         return None
