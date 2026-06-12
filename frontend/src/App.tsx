@@ -414,6 +414,7 @@ export default function App() {
                     currencyCode={selectedProduct.currency_code}
                     displayCurrency={displayCurrency}
                     rates={rates}
+                    onUpdate={fetchProducts}
                   />
                 </div>
               )}
@@ -432,10 +433,20 @@ export default function App() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 8,
         }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>© 2026 PriceMonitor</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            <Shield size={12} />
-            <span>books.toscrape.com · Discord Webhooks · SQLite</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>© 2026 PriceMonitor</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <Shield size={12} />
+              <span>books.toscrape.com · Discord Webhooks · SQLite</span>
+            </div>
+          </div>
+          <div style={{
+            fontSize: '0.625rem',
+            color: 'rgba(255,255,255,0.3)',
+            lineHeight: 1.4,
+            maxWidth: 600
+          }}>
+            Disclaimer: The AI analysis, market sentiment, and target prices provided are for informational purposes only and do not constitute financial advice. Always do your own research.
           </div>
         </div>
       </footer>

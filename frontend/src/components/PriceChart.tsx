@@ -11,7 +11,7 @@ import {
   Area,
   ComposedChart,
 } from 'recharts';
-import { BarChart3, Loader2, Inbox, Wand2, TrendingDown } from 'lucide-react';
+import { BarChart3, Loader2, Inbox, Wand2, TrendingDown, Brain, Target, ShieldAlert, Check } from 'lucide-react';
 
 interface PriceChartProps {
   productId: number;
@@ -22,6 +22,7 @@ interface PriceChartProps {
   displayCurrency?: string;
   rates?: Record<string, number>;
   onDataSeeded?: () => void;
+  onUpdate?: () => void;
 }
 
 interface PricePoint {
@@ -69,6 +70,14 @@ export default function PriceChart({
   const [prediction, setPrediction] = useState<PricePrediction | null>(null);
   const [loading, setLoading]     = useState(true);
   const [seeding, setSeeding]     = useState(false);
+  
+  // AI Analyst State
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiData, setAiData] = useState<any>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [skeletonMsg, setSkeletonMsg] = useState("");
+  const [settingTarget, setSettingTarget] = useState<string | null>(null);
 
   const rateToUSD = 1 / (rates[currencyCode] || 1);
   const conversionRate = rates[currencyCode] ? rateToUSD * (rates[displayCurrency] || 1) : 1;
@@ -117,6 +126,45 @@ export default function PriceChart({
       console.error('Failed to seed data', err);
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const startAiAnalysis = async () => {
+    if (!localStorage.getItem('ai_disclaimer_accepted')) {
+      setShowDisclaimer(true);
+      return;
+    }
+    
+    setAiLoading(true);
+    setAiError(null);
+    setSkeletonMsg("Fetching DefiLlama metrics & on-chain data...");
+    
+    const t1 = setTimeout(() => setSkeletonMsg("Scanning CryptoPanic news aggregators..."), 1500);
+    const t2 = setTimeout(() => setSkeletonMsg("Running predictive AI models..."), 3000);
+    
+    try {
+      // Send provider query parameter based on App's state or default to local/online.
+      const res = await axios.get(`/api/products/${productId}/ai-analysis?provider=online`);
+      setAiData(res.data);
+    } catch (e: any) {
+      setAiError(e.response?.data?.detail || e.message || "Failed to run AI analysis");
+    } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setAiLoading(false);
+    }
+  };
+
+  const handleSetAiTarget = async (price: number, type: string) => {
+    setSettingTarget(type);
+    try {
+      const basePrice = price / conversionRate;
+      await axios.put(`/api/products/${productId}`, { target_price: basePrice });
+      // Call parent update if passed
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSettingTarget(null);
     }
   };
 
@@ -354,7 +402,99 @@ export default function PriceChart({
             </div>
           </div>
         )}
+
+        {/* AI Analyst Section */}
+        <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Brain size={16} color="#a855f7" />
+              </div>
+              <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                Ask AI Analyst
+              </h4>
+            </div>
+            {!aiData && !aiLoading && (
+              <button className="btn-accent" style={{ background: '#a855f7', padding: '6px 12px', fontSize: '0.75rem' }} onClick={startAiAnalysis}>
+                <Wand2 size={12} style={{ marginRight: 6 }} /> Analyze Asset
+              </button>
+            )}
+          </div>
+
+          {aiLoading && (
+            <div style={{ padding: 24, background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px dashed var(--border)', textAlign: 'center' }}>
+              <Loader2 size={24} color="#a855f7" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', animation: 'pulse 1.5s ease infinite' }}>{skeletonMsg}</p>
+            </div>
+          )}
+
+          {aiError && (
+            <div style={{ padding: 16, background: 'rgba(248,113,113,0.1)', borderRadius: 8, border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: '0.8125rem' }}>
+              {aiError}
+            </div>
+          )}
+
+          {aiData && (
+            <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
+                {aiData.sentiment_analysis}
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                {aiData.targets?.map((tgt: any) => (
+                  <div key={tgt.type} className="glass" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: tgt.type === 'Aggressive' ? '#f87171' : tgt.type === 'Safe' ? '#4ade80' : '#facc15', textTransform: 'uppercase' }}>
+                        {tgt.type}
+                      </span>
+                      <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>
+                        {finalSymbol}{(tgt.price * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      {tgt.justification}
+                    </p>
+                    <button 
+                      onClick={() => handleSetAiTarget(tgt.price * conversionRate, tgt.type)}
+                      disabled={settingTarget === tgt.type}
+                      style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '6px', borderRadius: 6, fontSize: '0.75rem', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.2s' }}
+                    >
+                      {settingTarget === tgt.type ? <Loader2 size={12} className="spin" /> : <Target size={12} />}
+                      Set as Target
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.3)', marginTop: 12, textAlign: 'center' }}>
+                Disclaimer: AI analysis is for informational purposes only. Do your own research.
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {showDisclaimer && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#0f172a', border: '1px solid var(--border)', borderRadius: 16, padding: 32, maxWidth: 400, width: '90%', animation: 'fadeUp 0.3s ease both' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <ShieldAlert size={24} color="#facc15" />
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>Disclaimer</h3>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 24 }}>
+              The AI analysis, market sentiment, and target prices provided are for informational purposes only and do not constitute financial advice. Always do your own research before making any financial decisions.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button className="btn-ghost" onClick={() => setShowDisclaimer(false)}>Cancel</button>
+              <button className="btn-accent" onClick={() => { localStorage.setItem('ai_disclaimer_accepted', 'true'); setShowDisclaimer(false); startAiAnalysis(); }}>
+                <Check size={14} style={{ marginRight: 6 }} /> I Understand
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -31,6 +31,7 @@ from app.schemas import (
     SettingsUpdate,
 )
 from app.scraper import scrape_book
+from app.ai_service import get_ai_analysis
 from app.scheduler import reschedule_job, shutdown_scheduler, start_scheduler
 from app.alerts import send_discord_alert
 
@@ -361,6 +362,34 @@ async def get_price_history(
         .order_by(PriceHistory.scraped_at)
     ).all()
     return history
+
+@app.get("/api/products/{product_id}/ai-analysis")
+async def fetch_ai_analysis(product_id: int, provider: str = "online", db: Session = Depends(get_session)):
+    """Fetch AI Analyst report using DefiLlama, News RSS, and LLMs."""
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    history = db.exec(
+        select(PriceHistory)
+        .where(PriceHistory.product_id == product_id)
+        .order_by(PriceHistory.scraped_at.asc())
+    ).all()
+    
+    # Extract asset name from title (e.g. "Solana (Crypto)" -> "Solana")
+    asset_name = product.title.split(" (")[0] if " (Crypto)" in product.title else product.title
+    
+    try:
+        analysis = await get_ai_analysis(
+            product_id=product.id,
+            asset_name=asset_name,
+            current_price=product.current_price,
+            history=history,
+            provider=provider
+        )
+        return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
