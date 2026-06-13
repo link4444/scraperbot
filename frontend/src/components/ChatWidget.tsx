@@ -34,6 +34,26 @@ export default function ChatWidget() {
     }
   }, [messages]);
 
+  const askLocalOllama = async (question: string): Promise<string> => {
+    const payload = {
+      model: 'llama3',
+      prompt: `You are a helpful AI assistant for PriceMonitor, a price tracking application.
+You can answer questions about:
+- How the price monitoring platform works
+- How to track product prices
+- General financial education questions
+- Technical questions about the app
+
+If the user asks something unrelated, politely redirect to topics within your scope.
+Keep your answers concise, professional, and no more than 3-4 sentences.
+
+User's question: ${question}`,
+      stream: false,
+    };
+    const { data } = await axios.post('http://localhost:11434/api/generate', payload);
+    return data.response || 'I could not generate a response.';
+  };
+
   const send = async () => {
     const q = input.trim();
     if (!q || loading) return;
@@ -41,8 +61,14 @@ export default function ChatWidget() {
     setMessages(prev => [...prev, { role: 'user', content: q }]);
     setLoading(true);
     try {
-      const { data } = await axios.post<{ response: string }>('/api/chat', { question: q, provider });
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      let response: string;
+      if (provider === 'local') {
+        response = await askLocalOllama(q);
+      } else {
+        const { data } = await axios.post<{ response: string }>('/api/chat', { question: q, provider });
+        response = data.response;
+      }
+      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
     } finally {

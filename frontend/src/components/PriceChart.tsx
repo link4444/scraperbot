@@ -524,8 +524,26 @@ export default function PriceChart({
                     setChatHistory(prev => [...prev, { role: 'user', text: q }]);
                     setChatLoading(true);
                     try {
-                      const res = await axios.post(`/api/products/${productId}/ai-chat`, { question: q, provider: aiProvider });
-                      setChatHistory(prev => [...prev, { role: 'ai', text: res.data.response }]);
+                      let response: string;
+                      if (aiProvider === 'local') {
+                        const payload = {
+                          model: 'llama3',
+                          prompt: `You are a strict financial AI analyst. You are currently analyzing ${productTitle}.
+CRITICAL RULES:
+1. You MUST ONLY answer questions strictly related to this specific asset (${productTitle}), general financial advice, or trading strategy.
+2. If the user asks about ANYTHING ELSE (e.g., coding, cooking, general knowledge, weather), you must decline to answer and say "I am a financial analyst and can only answer questions related to ${productTitle} or financial markets."
+3. Keep your answers concise, professional, and no more than 3-4 sentences.
+
+User's question: ${q}`,
+                          stream: false,
+                        };
+                        const { data } = await axios.post('http://localhost:11434/api/generate', payload);
+                        response = data.response || 'I could not generate a response.';
+                      } else {
+                        const res = await axios.post(`/api/products/${productId}/ai-chat`, { question: q, provider: aiProvider });
+                        response = res.data.response;
+                      }
+                      setChatHistory(prev => [...prev, { role: 'ai', text: response }]);
                     } catch (err) {
                       setChatHistory(prev => [...prev, { role: 'ai', text: 'Failed to get response.' }]);
                     } finally {

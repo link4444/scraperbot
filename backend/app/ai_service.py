@@ -103,7 +103,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 payload = {
-                    "model": "qwen2.5",
+                    "model": "llama3",
                     "prompt": system_prompt,
                     "stream": False,
                     "format": "json"
@@ -115,7 +115,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
             logger.warning(f"Ollama not available ({e}), falling back to online/mock")
         except Exception as e:
             logger.error(f"Ollama failed: {e}")
-            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'llama3' pulled.")
 
     if result_json is None:
         groq_key = api_key or os.environ.get("GROQ_API_KEY")
@@ -185,7 +185,7 @@ User's question: {question}"""
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 payload = {
-                    "model": "qwen2.5",
+                    "model": "llama3",
                     "prompt": system_prompt,
                     "stream": False
                 }
@@ -196,7 +196,7 @@ User's question: {question}"""
             logger.warning(f"Ollama not available ({e}), falling back to online/mock")
         except Exception as e:
             logger.error(f"Ollama chat failed: {e}")
-            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'llama3' pulled.")
 
     groq_key = api_key or os.environ.get("GROQ_API_KEY")
     if groq_key:
@@ -234,7 +234,7 @@ User's question: {question}"""
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 payload = {
-                    "model": "qwen2.5",
+                    "model": "llama3",
                     "prompt": system_prompt,
                     "stream": False
                 }
@@ -245,7 +245,7 @@ User's question: {question}"""
             logger.warning(f"Ollama not available ({e}), falling back to online/mock")
         except Exception as e:
             logger.error(f"Ollama chat failed: {e}")
-            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'llama3' pulled.")
 
     groq_key = api_key or os.environ.get("GROQ_API_KEY")
     if groq_key:
