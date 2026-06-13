@@ -111,3 +111,8 @@ class ChatRequest(BaseModel):
     question: str
     provider: str = "online"
 
+class GeneralChatRequest(BaseModel):
+    """Request body for general AI Chat (no product context)."""
+    question: str
+    provider: str = "online"
+

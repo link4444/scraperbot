@@ -30,6 +30,7 @@ from app.schemas import (
     SettingsResponse,
     SettingsUpdate,
     ChatRequest,
+    GeneralChatRequest,
 )
 from app.scraper import scrape_book
 from app.ai_service import get_ai_analysis
@@ -416,6 +417,23 @@ async def chat_with_ai(product_id: int, payload: ChatRequest, db: Session = Depe
         response = await ai_chat(
             asset_name=asset_name,
             current_price=product.current_price,
+            question=payload.question,
+            provider=payload.provider,
+            api_key=api_key
+        )
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat")
+async def general_chat_endpoint(payload: GeneralChatRequest, db: Session = Depends(get_session)):
+    """General chat with the AI assistant (no product context needed)."""
+    api_key_setting = db.get(SystemSetting, "groq_api_key")
+    api_key = api_key_setting.value if api_key_setting else None
+
+    try:
+        from .ai_service import general_chat
+        response = await general_chat(
             question=payload.question,
             provider=payload.provider,
             api_key=api_key

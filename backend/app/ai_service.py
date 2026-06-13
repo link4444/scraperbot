@@ -101,9 +101,9 @@ Do not include markdown code blocks like ```json or any conversational filler te
 
     if provider == "local":
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=120) as client:
                 payload = {
-                    "model": "llama3",
+                    "model": "qwen2.5",
                     "prompt": system_prompt,
                     "stream": False,
                     "format": "json"
@@ -113,7 +113,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
                 result_json = resp.json().get("response", "{}")
         except Exception as e:
             logger.error(f"Ollama failed: {e}")
-            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
     else:
         # Fallback to online/mock since keys might not exist in this environment.
         # Ideally, we'd hit Groq here.
@@ -167,6 +167,57 @@ Do not include markdown code blocks like ```json or any conversational filler te
         logger.error(f"Raw response: {result_json}")
         raise ValueError("AI returned invalid data format.")
 
+async def general_chat(question: str, provider: str = "online", api_key: str = None) -> str:
+    """Chat with a general AI assistant (no product context)."""
+    system_prompt = f"""You are a helpful AI assistant for PriceMonitor, a price tracking application.
+You can answer questions about:
+- How the price monitoring platform works
+- How to track product prices
+- General financial education questions
+- Technical questions about the app
+
+If the user asks something unrelated, politely redirect to topics within your scope.
+Keep your answers concise, professional, and no more than 3-4 sentences.
+
+User's question: {question}"""
+
+    if provider == "local":
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                payload = {
+                    "model": "qwen2.5",
+                    "prompt": system_prompt,
+                    "stream": False
+                }
+                resp = await client.post("http://localhost:11434/api/generate", json=payload)
+                resp.raise_for_status()
+                return resp.json().get("response", "I could not generate a response.")
+        except Exception as e:
+            logger.error(f"Ollama chat failed: {e}")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
+    else:
+        groq_key = api_key or os.environ.get("GROQ_API_KEY")
+        if groq_key:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            try:
+                headers = {
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": system_prompt}]
+                }
+                async with httpx.AsyncClient(timeout=60) as client:
+                    resp = await client.post(url, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    return resp.json()["choices"][0]["message"]["content"]
+            except Exception as e:
+                logger.error(f"Groq chat failed: {e}")
+                raise ValueError("Online AI Model (Groq) failed to respond. Check if your API key is valid.")
+        else:
+            return "This is a simulated response because GROQ_API_KEY is not set. Please add your key to chat with the AI."
+
 async def ai_chat(asset_name: str, current_price: float, question: str, provider: str = "online", api_key: str = None) -> str:
     """Chat with the AI Analyst about the asset."""
     system_prompt = f"""You are a strict financial AI analyst. You are currently analyzing {asset_name} which is priced at ${current_price}.
@@ -179,9 +230,9 @@ User's question: {question}"""
 
     if provider == "local":
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=120) as client:
                 payload = {
-                    "model": "llama3",
+                    "model": "qwen2.5",
                     "prompt": system_prompt,
                     "stream": False
                 }
@@ -190,7 +241,7 @@ User's question: {question}"""
                 return resp.json().get("response", "I could not generate a response.")
         except Exception as e:
             logger.error(f"Ollama chat failed: {e}")
-            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
+            raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
     else:
         import os
         groq_key = api_key or os.environ.get("GROQ_API_KEY")

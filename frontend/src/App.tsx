@@ -15,6 +15,7 @@ import ProductCard from './components/ProductCard';
 import type { Product } from './components/ProductCard';
 import PriceChart from './components/PriceChart';
 import SettingsModal from './components/SettingsModal';
+import ChatWidget from './components/ChatWidget';
 import { translations } from './translations';
 
 type Tab = 'overview' | 'add';
@@ -448,6 +449,7 @@ export default function App() {
       </footer>
 
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={setAiProvider} />
+      <ChatWidget />
     </div>
   );
 }
