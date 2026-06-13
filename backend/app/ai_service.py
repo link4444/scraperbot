@@ -118,8 +118,7 @@ Do not include markdown code blocks like ```json or any conversational filler te
         # Fallback to online/mock since keys might not exist in this environment.
         # Ideally, we'd hit Groq here.
         import os
-        baked_key = "gsk_bUvsTFKc" + "jjjDgjQSYkUyWGdyb" + "3FYVXaBIhUJ1bKnfHLFiP1aDVME"
-        groq_key = api_key or os.environ.get("GROQ_API_KEY") or baked_key
+        groq_key = api_key or os.environ.get("GROQ_API_KEY")
         if groq_key:
             url = "https://api.groq.com/openai/v1/chat/completions"
             try:
@@ -194,8 +193,7 @@ User's question: {question}"""
             raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
     else:
         import os
-        baked_key = "gsk_bUvsTFKc" + "jjjDgjQSYkUyWGdyb" + "3FYVXaBIhUJ1bKnfHLFiP1aDVME"
-        groq_key = api_key or os.environ.get("GROQ_API_KEY") or baked_key
+        groq_key = api_key or os.environ.get("GROQ_API_KEY")
         if groq_key:
             url = "https://api.groq.com/openai/v1/chat/completions"
             try:
