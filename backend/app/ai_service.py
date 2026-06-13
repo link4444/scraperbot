@@ -116,30 +116,33 @@ Do not include markdown code blocks like ```json or any conversational filler te
             raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
     else:
         # Fallback to online/mock since keys might not exist in this environment.
-        # Ideally, we'd hit OpenAI or Gemini here.
-        # We will just simulate it for safety if no key is provided, or hit Gemini if key exists.
+        # Ideally, we'd hit Groq here.
         import os
-        hardcoded_key = "AQ.Ab8RN6KPu" + "JQUSsQ3vYksXu_H36yS" + "ODZhaI7kIWOCxPkYNUXbTw"
-        gemini_key = api_key or os.environ.get("GEMINI_API_KEY") or hardcoded_key
-        if gemini_key:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        groq_key = api_key or os.environ.get("GROQ_API_KEY")
+        if groq_key:
+            url = "https://api.groq.com/openai/v1/chat/completions"
             try:
+                headers = {
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": system_prompt}],
+                    "response_format": {"type": "json_object"}
+                }
                 async with httpx.AsyncClient(timeout=60) as client:
-                    payload = {
-                        "contents": [{"parts": [{"text": system_prompt}]}],
-                        "generationConfig": {"response_mime_type": "application/json"}
-                    }
-                    resp = await client.post(url, json=payload)
+                    resp = await client.post(url, headers=headers, json=payload)
                     resp.raise_for_status()
-                    result_json = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    result_json = resp.json()["choices"][0]["message"]["content"]
             except Exception as e:
-                logger.error(f"Gemini failed: {e}")
-                raise ValueError("Online AI Model failed to respond.")
+                logger.error(f"Groq failed: {e}")
+                raise ValueError("Online AI Model (Groq) failed to respond. Check if your API key is valid.")
         else:
             # Fallback mock for testing without keys
             result_json = json.dumps({
-                "summary": "This is a simulated summary because GEMINI_API_KEY is not set. The asset shows normal volatility.",
-                "sentiment_analysis": "This is a simulated online response because GEMINI_API_KEY is not set. The asset shows normal volatility. News sentiment remains neutral.",
+                "summary": "This is a simulated summary because GROQ_API_KEY is not set. The asset shows normal volatility.",
+                "sentiment_analysis": "This is a simulated online response because GROQ_API_KEY is not set. The asset shows normal volatility. News sentiment remains neutral.",
                 "targets": [
                     {"type": "Aggressive", "price": current_price * 0.9, "justification": "Aggressive drop target."},
                     {"type": "Moderate", "price": current_price * 0.8, "justification": "Moderate historical support."},
@@ -190,20 +193,24 @@ User's question: {question}"""
             raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally and 'llama3' is pulled.")
     else:
         import os
-        hardcoded_key = "AQ.Ab8RN6KPu" + "JQUSsQ3vYksXu_H36yS" + "ODZhaI7kIWOCxPkYNUXbTw"
-        gemini_key = api_key or os.environ.get("GEMINI_API_KEY") or hardcoded_key
-        if gemini_key:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        groq_key = api_key or os.environ.get("GROQ_API_KEY")
+        if groq_key:
+            url = "https://api.groq.com/openai/v1/chat/completions"
             try:
+                headers = {
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": system_prompt}]
+                }
                 async with httpx.AsyncClient(timeout=60) as client:
-                    payload = {
-                        "contents": [{"parts": [{"text": system_prompt}]}],
-                    }
-                    resp = await client.post(url, json=payload)
+                    resp = await client.post(url, headers=headers, json=payload)
                     resp.raise_for_status()
-                    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    return resp.json()["choices"][0]["message"]["content"]
             except Exception as e:
-                logger.error(f"Gemini chat failed: {e}")
-                raise ValueError("Online AI Model failed to respond.")
+                logger.error(f"Groq chat failed: {e}")
+                raise ValueError("Online AI Model (Groq) failed to respond. Check if your API key is valid.")
         else:
-            return "This is a simulated response because GEMINI_API_KEY is not set. Please add your key to chat with the AI."
+            return "This is a simulated response because GROQ_API_KEY is not set. Please add your key to chat with the AI."

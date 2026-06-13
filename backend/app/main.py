@@ -382,7 +382,7 @@ async def fetch_ai_analysis(product_id: int, provider: str = "online", db: Sessi
     asset_name = product.title.split(" (")[0] if " (Crypto)" in product.title else product.title
     
     
-    api_key_setting = db.get(SystemSetting, "gemini_api_key")
+    api_key_setting = db.get(SystemSetting, "groq_api_key")
     api_key = api_key_setting.value if api_key_setting else None
     
     try:
@@ -408,7 +408,7 @@ async def chat_with_ai(product_id: int, payload: ChatRequest, db: Session = Depe
     asset_name = product.title.split(" (")[0] if " (Crypto)" in product.title else product.title
     
     
-    api_key_setting = db.get(SystemSetting, "gemini_api_key")
+    api_key_setting = db.get(SystemSetting, "groq_api_key")
     api_key = api_key_setting.value if api_key_setting else None
     
     try:
@@ -624,10 +624,10 @@ async def get_settings(db: Session = Depends(get_session)):
     db_ai_setting = db.get(SystemSetting, "ai_provider")
     ai_provider = db_ai_setting.value if db_ai_setting else "online"
     
-    db_key_setting = db.get(SystemSetting, "gemini_api_key")
-    gemini_api_key = db_key_setting.value if db_key_setting else ""
+    db_key_setting = db.get(SystemSetting, "groq_api_key")
+    groq_api_key = db_key_setting.value if db_key_setting else ""
     
-    return SettingsResponse(discord_webhook_url=discord_webhook_url, ai_provider=ai_provider, gemini_api_key=gemini_api_key)
+    return SettingsResponse(discord_webhook_url=discord_webhook_url, ai_provider=ai_provider, groq_api_key=groq_api_key)
 
 
 # ---------------------------------------------------------------------------
@@ -670,17 +670,17 @@ async def update_settings(payload: SettingsUpdate, db: Session = Depends(get_ses
         db_ai_setting = SystemSetting(key="ai_provider", value=ai_provider)
     db.add(db_ai_setting)
 
-    gemini_api_key = payload.gemini_api_key or ""
-    db_key_setting = db.get(SystemSetting, "gemini_api_key")
+    groq_api_key = payload.groq_api_key or ""
+    db_key_setting = db.get(SystemSetting, "groq_api_key")
     if db_key_setting:
-        db_key_setting.value = gemini_api_key
+        db_key_setting.value = groq_api_key
     else:
-        db_key_setting = SystemSetting(key="gemini_api_key", value=gemini_api_key)
+        db_key_setting = SystemSetting(key="groq_api_key", value=groq_api_key)
     db.add(db_key_setting)
 
     db.commit()
 
-    return SettingsResponse(discord_webhook_url=url, ai_provider=ai_provider, gemini_api_key=gemini_api_key)
+    return SettingsResponse(discord_webhook_url=url, ai_provider=ai_provider, groq_api_key=groq_api_key)
 
 
 # ---------------------------------------------------------------------------

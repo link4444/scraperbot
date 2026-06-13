@@ -97,14 +97,14 @@ class SettingsResponse(BaseModel):
 
     discord_webhook_url: Optional[str] = None
     ai_provider: Optional[str] = "online"
-    gemini_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
 
 class SettingsUpdate(BaseModel):
     """Request body to update system settings."""
 
     discord_webhook_url: Optional[str] = None
     ai_provider: Optional[str] = "online"
-    gemini_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
 
 class ChatRequest(BaseModel):
     """Request body for AI Chat."""
