@@ -9,10 +9,14 @@ services:
     envVars:
       - key: DATABASE_URL
         value: sqlite:///./pricemonitor.db
+      - key: GROQ_API_KEY
+        sync: false              # REQUIRED for AI chat (online mode). Get one at console.groq.com
       - key: DISCORD_WEBHOOK_URL
-        sync: false
+        sync: false              # Optional: alerts via Discord
       - key: FRONTEND_URL
-        sync: false
+        sync: false              # REQUIRED: your frontend URL (e.g. https://price-monitor-frontend.onrender.com) for CORS
+      - key: CORS_ORIGINS
+        sync: false              # Optional: comma-separated list of extra CORS origins
 
   # ── Frontend (Vite / React static site) ──────────────────────────────────
   - type: web
@@ -27,4 +31,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        sync: false
+        sync: false              # REQUIRED: backend URL (e.g. https://price-monitor-backend.onrender.com)

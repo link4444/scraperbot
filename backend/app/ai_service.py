@@ -111,13 +111,13 @@ Do not include markdown code blocks like ```json or any conversational filler te
                 resp = await client.post("http://localhost:11434/api/generate", json=payload)
                 resp.raise_for_status()
                 result_json = resp.json().get("response", "{}")
+        except httpx.ConnectError as e:
+            logger.warning(f"Ollama not available ({e}), falling back to online/mock")
         except Exception as e:
             logger.error(f"Ollama failed: {e}")
             raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
-    else:
-        # Fallback to online/mock since keys might not exist in this environment.
-        # Ideally, we'd hit Groq here.
-        import os
+
+    if result_json is None:
         groq_key = api_key or os.environ.get("GROQ_API_KEY")
         if groq_key:
             url = "https://api.groq.com/openai/v1/chat/completions"
@@ -192,31 +192,33 @@ User's question: {question}"""
                 resp = await client.post("http://localhost:11434/api/generate", json=payload)
                 resp.raise_for_status()
                 return resp.json().get("response", "I could not generate a response.")
+        except httpx.ConnectError as e:
+            logger.warning(f"Ollama not available ({e}), falling back to online/mock")
         except Exception as e:
             logger.error(f"Ollama chat failed: {e}")
             raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
+
+    groq_key = api_key or os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        try:
+            headers = {
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": system_prompt}]
+            }
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"Groq chat failed: {e}")
+            raise ValueError("Online AI Model (Groq) failed to respond. Check if your API key is valid.")
     else:
-        groq_key = api_key or os.environ.get("GROQ_API_KEY")
-        if groq_key:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            try:
-                headers = {
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": system_prompt}]
-                }
-                async with httpx.AsyncClient(timeout=60) as client:
-                    resp = await client.post(url, headers=headers, json=payload)
-                    resp.raise_for_status()
-                    return resp.json()["choices"][0]["message"]["content"]
-            except Exception as e:
-                logger.error(f"Groq chat failed: {e}")
-                raise ValueError("Online AI Model (Groq) failed to respond. Check if your API key is valid.")
-        else:
-            return "This is a simulated response because GROQ_API_KEY is not set. Please add your key to chat with the AI."
+        return "This is a simulated response because GROQ_API_KEY is not set. Please add your key to chat with the AI."
 
 async def ai_chat(asset_name: str, current_price: float, question: str, provider: str = "online", api_key: str = None) -> str:
     """Chat with the AI Analyst about the asset."""
@@ -239,29 +241,30 @@ User's question: {question}"""
                 resp = await client.post("http://localhost:11434/api/generate", json=payload)
                 resp.raise_for_status()
                 return resp.json().get("response", "I could not generate a response.")
+        except httpx.ConnectError as e:
+            logger.warning(f"Ollama not available ({e}), falling back to online/mock")
         except Exception as e:
             logger.error(f"Ollama chat failed: {e}")
             raise ValueError("Local AI Model failed to respond. Ensure Ollama is running locally with 'qwen2.5' pulled.")
+
+    groq_key = api_key or os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        try:
+            headers = {
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": system_prompt}]
+            }
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"Groq chat failed: {e}")
+            raise ValueError("Online AI Model (Groq) failed to respond. Check if your API key is valid.")
     else:
-        import os
-        groq_key = api_key or os.environ.get("GROQ_API_KEY")
-        if groq_key:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            try:
-                headers = {
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": system_prompt}]
-                }
-                async with httpx.AsyncClient(timeout=60) as client:
-                    resp = await client.post(url, headers=headers, json=payload)
-                    resp.raise_for_status()
-                    return resp.json()["choices"][0]["message"]["content"]
-            except Exception as e:
-                logger.error(f"Groq chat failed: {e}")
-                raise ValueError("Online AI Model (Groq) failed to respond. Check if your API key is valid.")
-        else:
-            return "This is a simulated response because GROQ_API_KEY is not set. Please add your key to chat with the AI."
+        return "This is a simulated response because GROQ_API_KEY is not set. Please add your key to chat with the AI."

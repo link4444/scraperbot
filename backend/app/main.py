@@ -86,11 +86,20 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS — allow the React dev server
+# CORS — allow the React dev server & deployed frontend
 # ---------------------------------------------------------------------------
-_cors_origins = ["http://localhost:5173"]
+_cors_origins = ["http://localhost:5173", "http://localhost:4173"]
 if FRONTEND_URL:
     _cors_origins.append(FRONTEND_URL)
+
+# Also allow the VITE_API_BASE_URL origin if different from FRONTEND_URL
+_api_url = os.getenv("VITE_API_BASE_URL", "")
+if _api_url and _api_url not in _cors_origins:
+    _cors_origins.append(_api_url)
+
+# Parse extra origins from env (comma-separated)
+_extra = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+_cors_origins.extend(_extra)
 
 app.add_middleware(
     CORSMiddleware,
